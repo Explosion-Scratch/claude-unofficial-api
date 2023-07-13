@@ -107,7 +107,12 @@ export class Conversation {
             if (!a.toString().startsWith('data:')){
                 return;
             }
-            let parsed = JSON.parse(a.toString().replace(/^data\:/, '').split('\n\ndata:')[0]?.trim() || "{}");
+            let parsed;
+            try {
+                parsed = JSON.parse(a.toString().replace(/^data\:/, '').split('\n\ndata:')[0]?.trim() || "{}");
+            } catch (e) {
+                return;
+            }
             progress(parsed);
             if (parsed.stop_reason === 'stop_sequence') {
                 done(parsed);
