@@ -1,22 +1,4 @@
-/*
-USAGE:
-
-setTimeout(async () => {
-    const c = new Claude({ sessionKey: SESSION_KEY_HERE });
-    console.log(c);
-    await c.init();
-    await c.startConversation("What're some funny songs to listen to", {
-        progress: (a) => {
-            console.clear();
-            console.log(a)
-        }
-    }).then((r) => {
-        console.log('FINAL', r)
-    })
-})
-*/
-
-class Claude {
+export class Claude {
     constructor({ sessionKey }) {
         this.sessionKey = sessionKey;
     }
@@ -75,7 +57,6 @@ class Claude {
             }
         });
         const json = await response.json();
-        console.log('get conversations json', json);
         return json.map(convo => new Conversation(this, { conversationId: convo.uuid, ...convo }));
     }
     async uploadFile(file) {
@@ -94,7 +75,7 @@ class Claude {
     }
 }
 
-class Conversation {
+export class Conversation {
     constructor(claude, { conversationId, name, summary, created_at, updated_at }) {
         this.claude = claude;
         this.conversationId = conversationId;
@@ -113,7 +94,6 @@ class Conversation {
                 model,
             }
         };
-        console.log(body);
         const response = await fetch("https://claude.ai/api/append_message", {
             method: "POST",
             headers: {
@@ -126,11 +106,13 @@ class Conversation {
         let resolve;
         let returnPromise = new Promise(r => (resolve = r));
         readStream(response, (a) => {
-            let parsed = JSON.parse(a.toString().split('data:')?.[1]?.trim() || "{}");
+            if (!a.toString().startsWith('data:')){
+                return;
+            }
+            let parsed = JSON.parse(a.toString().replace(/^data\:/, '').split('\n\ndata:')[0]?.trim() || "{}");
             progress(parsed);
             if (parsed.stop_reason === 'stop_sequence') {
                 done(parsed);
-                progress(parsed);
                 resolve(parsed);
             }
         })
@@ -174,3 +156,5 @@ async function readStream(response, progressCallback) {
 
     return new TextDecoder('utf-8').decode(body);
 }
+
+export default Claude;

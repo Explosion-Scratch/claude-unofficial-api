@@ -1,6 +1,7 @@
 {
     "name": "claude-ai",
-    "version": "1.0.0",
+    "type": "module",
+    "version": "1.0.1",
     "description": "Unofficial library for interacting with Claude AI",
     "main": "index.js",
     "scripts": {
