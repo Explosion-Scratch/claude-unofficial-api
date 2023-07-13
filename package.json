@@ -1,24 +1,24 @@
 {
-    "name": "claude-ai",
-    "type": "module",
-    "version": "1.0.1",
-    "description": "Unofficial library for interacting with Claude AI",
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/Explosion-Scratch/claude-unofficial-api.git"
-    },
-    "keywords": [
-        "claude",
-        "claude-ai",
-        "ai",
-        "chatbot",
-        "api",
-        "unofficial"
-    ],
-    "author": "@Explosion-Scratch",
-    "license": "Unlicense"
+  "name": "claude-ai",
+  "type": "module",
+  "version": "1.0.2",
+  "description": "Unofficial library for interacting with Claude AI",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Explosion-Scratch/claude-unofficial-api.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-ai",
+    "ai",
+    "chatbot",
+    "api",
+    "unofficial"
+  ],
+  "author": "@Explosion-Scratch",
+  "license": "Unlicense"
 }

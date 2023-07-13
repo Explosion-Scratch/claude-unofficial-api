@@ -44,9 +44,7 @@ export class Claude {
                 recent_titles: this.recent_conversations.map(i => i.name),
             }),
             method: 'POST'
-        }).then(r => r.json()).then(json => {
-            console.log('generate title', json);
-        });
+        }).then(r => r.json())
         return convo;
     }
     async getConversations() {
