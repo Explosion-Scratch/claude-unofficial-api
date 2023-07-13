@@ -78,6 +78,20 @@ class Claude {
         console.log('get conversations json', json);
         return json.map(convo => new Conversation(this, { conversationId: convo.uuid, ...convo }));
     }
+    async uploadFile(file) {
+        const payload = new FormData();
+        payload.append('file', file);
+        payload.append('orgUuid', this.organizationId);
+        const response = await fetch('https://claude.ai/api/convert_document', {
+            method: 'POST',
+            body: payload
+        });
+        const json = await response.json();
+        if (!json.hasOwnProperty('extracted_content')) {
+            throw new Error('Invalid response');
+        }
+        return json;
+    }
 }
 
 class Conversation {
@@ -87,15 +101,15 @@ class Conversation {
         Object.assign(this, { name, summary, created_at, updated_at })
     }
 
-    async sendMessage(message, { model = "claude-2", done = () => { }, progress = () => { } } = {}) {
+    async sendMessage(message, { timezone = "America/New_York", attachments = [], model = "claude-2", done = () => { }, progress = () => { } } = {}) {
         const body = {
             organization_uuid: this.claude.organizationId,
             conversation_uuid: this.conversationId,
             text: message,
-            attachments: [],
+            attachments,
             completion: {
                 prompt: message,
-                timezone: "America/New_York",
+                timezone,
                 model,
             }
         };
