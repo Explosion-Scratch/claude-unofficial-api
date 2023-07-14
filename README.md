@@ -9,7 +9,7 @@ This is a lightweight JavaScript library for interacting with the [Claude AI](ht
 - 📎 Upload files 
 - 🔄 Async/await ready with modern syntax
 - 💾 Get and respond to existing conversations
-- 🚀 Upcoming: Retrying responses, ~~deleting chats, proxy support~~
+- 🚀 Upcoming: Retrying responses, [Reflexion](https://arxiv.org/abs/2303.11366) implementation ~~deleting chats, proxy support~~
 - 💪 Supports all claude models (`claude-2`, `claude-1.3`, `claude-instant-100k` - See `--model` flag)
 
 
