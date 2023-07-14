@@ -5,6 +5,7 @@
   "description": "Unofficial library for interacting with Claude AI",
   "main": "index.js",
   "scripts": {
+    "postinstall": "cd cli && npm i",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
