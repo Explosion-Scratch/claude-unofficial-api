@@ -72,7 +72,6 @@ export class Claude {
                 "extracted_content": await readAsText(file)
             }
         }
-        process.exit(0);
         const payload = new FormData();
         payload.append('file', file);
         payload.append('orgUuid', this.organizationId);
@@ -84,8 +83,6 @@ export class Claude {
             method: 'POST',
             body: payload
         });
-        console.log('text:', await response.text())
-        return;
         const json = await response.json();
         if (!json.hasOwnProperty('extracted_content')) {
             console.log(json);
