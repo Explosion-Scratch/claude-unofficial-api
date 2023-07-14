@@ -1,4 +1,6 @@
-<h1><center><a href="https://github.com/explosion-scratch/claude-unofficial-api">claude-unofficial-api</a></center></h1>
+<h1><div align=center><a href="https://github.com/explosion-scratch/claude-unofficial-api">claude-unofficial-api</a></div></h1>
+
+https://github.com/Explosion-Scratch/claude-unofficial-api/assets/61319150/6c3f706d-bddf-42e6-9745-aa1f7561ca40
 
 This is a lightweight JavaScript library for interacting with the [Claude AI](https://www.claude.ai/) chatbot's unofficial internal API. 
   
