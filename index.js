@@ -44,7 +44,7 @@ export class Claude {
             method: 'POST',
             body: JSON.stringify({
                 name: '',
-                uuid: crypto.randomUUID(),
+                uuid: uuid(),
             })
         }).then(r => r.json()).catch(errorHandle("startConversation create"));
         const convo = new Conversation(this, { conversationId: convoID, name, summary, created_at, updated_at });
@@ -229,8 +229,6 @@ async function readAsText(file) {
     }
 }
 
-export default Claude;
-
 function errorHandle(msg) {
     return (e) => {
         console.error(chalk.red.bold(`Error at: ${msg}`))
@@ -238,3 +236,16 @@ function errorHandle(msg) {
         process.exit(0);
     }
 }
+
+function uuid() {
+    var h = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
+    var k = ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', '-', 'x', 'x', 'x', 'x', '-', '4', 'x', 'x', 'x', '-', 'y', 'x', 'x', 'x', '-', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'];
+    var u = '', i = 0, rb = Math.random() * 0xffffffff | 0;
+    while (i++ < 36) {
+        var c = k[i - 1], r = rb & 0xf, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        u += (c == '-' || c == '4') ? c : h[v]; rb = i % 8 == 0 ? Math.random() * 0xffffffff | 0 : rb >> 4
+    }
+    return u
+}
+
+export default Claude;
