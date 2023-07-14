@@ -15,7 +15,7 @@
     "license": "Unlicense",
     "dependencies": {
         "chalk": "^5.3.0",
-        "claude-ai": "^1.0.8",
+        "claude-ai": "^1.0.9",
         "dotenv": "^16.3.1",
         "inquirer": "^9.2.7",
         "marked": "^5.1.0",

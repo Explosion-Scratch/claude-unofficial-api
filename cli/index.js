@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Claude } from 'claude-ai';
+import { Claude } from '../index.js';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';

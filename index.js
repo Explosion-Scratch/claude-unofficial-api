@@ -1,5 +1,13 @@
 export class Claude {
-    constructor({ sessionKey }) {
+    constructor({ sessionKey, proxy = ({ endpoint, options }) => { endpoint: 'https://claude.ai/' + endpoint, options } }) {
+        if (typeof proxy === 'string') {
+            const HOST = proxy;
+            this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
+        } else if (typeof proxy === 'function') {
+            this.proxy = proxy;
+        } else {
+            throw new Error('Proxy must be a string (host) or a function ({ endpoint /* endpoint (path) */, options /* fetch options */ }) => { endpoint /* full url */, options /* fetch options */ }');
+        }
         if (!sessionKey) {
             throw new Error('Session key required');
         }
@@ -8,7 +16,9 @@ export class Claude {
         }
         this.sessionKey = sessionKey;
     }
-
+    request(endpoint, options) {
+        return fetch(this.proxy({ endpoint, options }), options);
+    }
     async init() {
         const organizations = await this.getOrganizations();
         this.organizationId = organizations[0].uuid;
@@ -16,7 +26,7 @@ export class Claude {
     }
 
     async getOrganizations() {
-        const response = await fetch("https://claude.ai/api/organizations", {
+        const response = await this.request("/api/organizations", {
             headers: {
                 "content-type": "application/json",
                 "cookie": `sessionKey=${this.sessionKey}`
@@ -25,7 +35,7 @@ export class Claude {
         return await response.json().catch(errorHandle("getOrganizations"));
     }
     async startConversation(message, params) {
-        const { uuid: convoID, name, summary, created_at, updated_at } = await fetch(`https://claude.ai/api/organizations/${this.organizationId}/chat_conversations`, {
+        const { uuid: convoID, name, summary, created_at, updated_at } = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
                 "content-type": "application/json",
                 "cookie": `sessionKey=${this.sessionKey}`
@@ -38,7 +48,7 @@ export class Claude {
         }).then(r => r.json()).catch(errorHandle("startConversation create"));
         const convo = new Conversation(this, { conversationId: convoID, name, summary, created_at, updated_at });
         await convo.sendMessage(message, params)
-        await fetch(`https://claude.ai/api/generate_chat_title`, {
+        await this.request(`/api/generate_chat_title`, {
             headers: {
                 "content-type": "application/json",
                 "cookie": `sessionKey=${this.sessionKey}`
@@ -54,7 +64,7 @@ export class Claude {
         return convo;
     }
     async getConversations() {
-        const response = await fetch(`https://claude.ai/api/organizations/${this.organizationId}/chat_conversations`, {
+        const response = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
                 "content-type": "application/json",
                 "cookie": `sessionKey=${this.sessionKey}`
@@ -77,7 +87,7 @@ export class Claude {
         const fd = new FormData();
         fd.append('file', file, file.name);
         fd.append('orgUuid', this.organizationId);
-        const response = await fetch('https://claude.ai/api/convert_document', {
+        const response = await this.request('/api/convert_document', {
             headers: {
                 "cookie": `sessionKey=${this.sessionKey}`,
             },
@@ -123,7 +133,7 @@ export class Conversation {
                 model,
             }
         };
-        const response = await fetch("https://claude.ai/api/append_message", {
+        const response = await this.request("/api/append_message", {
             method: "POST",
             headers: {
                 "accept": "text/event-stream,text/event-stream",
@@ -154,7 +164,7 @@ export class Conversation {
     }
 
     async getInfo() {
-        const response = await fetch(`https://claude.ai/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
+        const response = await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
                 "content-type": "application/json",
                 "cookie": `sessionKey=${this.claude.sessionKey}`
