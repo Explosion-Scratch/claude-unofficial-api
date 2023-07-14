@@ -61,7 +61,7 @@ await conversation.sendMessage('How are you today?');
 The full code would look like:
 
 ```js
-const Claude = require('claude-ai-js');
+const Claude = require('claude-ai');
 
 const claude = new Claude({
   sessionKey: 'YOUR_SESSION_KEY'
