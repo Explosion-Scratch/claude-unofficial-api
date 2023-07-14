@@ -64,12 +64,13 @@ export class Claude {
         return json.map(convo => new Conversation(this, { conversationId: convo.uuid, ...convo }));
     }
     async uploadFile(file) {
-        if (file.type.startsWith('text')) {
+        const { content, isText } = await readAsText(file);
+        if (isText) {
             return {
                 "file_name": file.name,
                 "file_type": file.type,
                 "file_size": file.size,
-                "extracted_content": await readAsText(file)
+                "extracted_content": content,
             }
         }
         const payload = new FormData();
@@ -180,7 +181,12 @@ async function readStream(response, progressCallback) {
 }
 
 async function readAsText(file) {
-    return await file.arrayBuffer().then((ab) => new TextDecoder('utf-8').decode(ab));
+    const buf = await file.arrayBuffer();
+    const allow = ['text', 'javascript', 'json', 'html', 'sh', 'xml', 'latex', 'ecmascript']
+    return {
+        content: new TextDecoder('utf-8').decode(buf),
+        isText: !!allow.find(i => file.type.includes(i))
+    }
 }
 
 export default Claude;
