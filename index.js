@@ -1,5 +1,5 @@
 export class Claude {
-    constructor({ sessionKey, proxy = ({ endpoint, options }) => { endpoint: 'https://claude.ai/' + endpoint, options } }) {
+    constructor({ sessionKey, proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai/' + endpoint, options }) }) {
         if (typeof proxy === 'string') {
             const HOST = proxy;
             this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
@@ -17,7 +17,8 @@ export class Claude {
         this.sessionKey = sessionKey;
     }
     request(endpoint, options) {
-        return fetch(this.proxy({ endpoint, options }), options);
+        const proxied = this.proxy({ endpoint, options });
+        return fetch(proxied.endpoint, proxied.options);
     }
     async init() {
         const organizations = await this.getOrganizations();
@@ -118,6 +119,16 @@ export class Conversation {
     constructor(claude, { conversationId, name, summary, created_at, updated_at }) {
         this.claude = claude;
         this.conversationId = conversationId;
+        this.request = claude.request;
+        if (!this.claude) {
+            throw new Error('Claude not initialized');
+        }
+        if (!this.claude.sessionKey) {
+            throw new Error('Session key required');
+        }
+        if (!this.conversationId) {
+            throw new Error('Conversation ID required');
+        }
         Object.assign(this, { name, summary, created_at, updated_at })
     }
 
@@ -162,7 +173,14 @@ export class Conversation {
         })
         return returnPromise;
     }
-
+    async delete() {
+        return await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
+            headers: {
+                "cookie": `sessionKey=${this.claude.sessionKey}`
+            },
+            method: 'DELETE'
+        }).catch(errorHandle("Delete conversation " + this.conversationId));
+    }
     async getInfo() {
         const response = await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
