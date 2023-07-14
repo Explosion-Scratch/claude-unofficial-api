@@ -22,7 +22,7 @@ export class Claude {
                 "cookie": `sessionKey=${this.sessionKey}`
             }
         });
-        return await response.json();
+        return await response.json().catch(errorHandle("getOrganizations"));
     }
     async startConversation(message, params) {
         const { uuid: convoID, name, summary, created_at, updated_at } = await fetch(`https://claude.ai/api/organizations/${this.organizationId}/chat_conversations`, {
@@ -35,7 +35,7 @@ export class Claude {
                 name: '',
                 uuid: crypto.randomUUID(),
             })
-        }).then(r => r.json());
+        }).then(r => r.json()).catch(errorHandle("startConversation create"));
         const convo = new Conversation(this, { conversationId: convoID, name, summary, created_at, updated_at });
         await convo.sendMessage(message, params)
         await fetch(`https://claude.ai/api/generate_chat_title`, {
@@ -50,7 +50,7 @@ export class Claude {
                 recent_titles: this.recent_conversations.map(i => i.name),
             }),
             method: 'POST'
-        }).then(r => r.json())
+        }).then(r => r.json()).catch(errorHandle("startConversation generate_chat_title"));
         return convo;
     }
     async getConversations() {
@@ -66,6 +66,7 @@ export class Claude {
     async uploadFile(file) {
         const { content, isText } = await readAsText(file);
         if (isText) {
+            console.log(`Extracted ${content.length} characters from ${file.name}`);
             return {
                 "file_name": file.name,
                 "file_type": file.type,
@@ -73,30 +74,32 @@ export class Claude {
                 "extracted_content": content,
             }
         }
-        const payload = new FormData();
-        payload.append('file', file);
-        payload.append('orgUuid', this.organizationId);
+        const fd = new FormData();
+        fd.append('file', file, file.name);
+        fd.append('orgUuid', this.organizationId);
         const response = await fetch('https://claude.ai/api/convert_document', {
             headers: {
                 "cookie": `sessionKey=${this.sessionKey}`,
-                "accept": "application/json",
             },
             method: 'POST',
-            body: payload
+            body: fd
         });
         let json;
         try {
             json = await response.json();
         } catch (e) {
-            throw new Error('Invalid response when uploading ' + file);
+            console.log("Couldn't parse JSON", response.status)
+            throw new Error('Invalid response when uploading ' + file.name);
         }
         if (response.status !== 200) {
-            throw new Error('Invalid response when uploading ' + file);
+            console.log('Status not 200')
+            throw new Error('Invalid response when uploading ' + file.name);
         }
         if (!json.hasOwnProperty('extracted_content')) {
             console.log(json);
-            throw new Error('Invalid response when uploading ' + file);
+            throw new Error('Invalid response when uploading ' + file.name);
         }
+        console.log(`Extracted ${json.extracted_content.length} characters from ${file.name}`);
         return json;
     }
 }
@@ -157,7 +160,7 @@ export class Conversation {
                 "cookie": `sessionKey=${this.claude.sessionKey}`
             }
         });
-        return await response.json();
+        return await response.json().catch(errorHandle("getInfo"));
     }
 }
 
@@ -199,3 +202,11 @@ async function readAsText(file) {
 }
 
 export default Claude;
+
+function errorHandle(msg) {
+    return (e) => {
+        console.error(chalk.red.bold(`Error at: ${msg}`))
+        console.error(e);
+        process.exit(0);
+    }
+}

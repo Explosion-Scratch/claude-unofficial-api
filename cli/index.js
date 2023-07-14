@@ -254,7 +254,7 @@ async function uploadFile(claude, filename) {
     }
     console.log(chalk.gray.dim.italic('Uploading file ' + filename));
     const attachment = await claude.uploadFile(
-        new File([readFileSync(filename, 'utf-8')], filename.split('/').slice(-1)[0], { type: mime.lookup(filename) })
+        new File([readFileSync(filename)], filename.split('/').slice(-1)[0], { type: mime.lookup(filename) })
     );
     console.log(chalk.gray.dim.italic('Uploaded file ' + filename));
     return attachment;
