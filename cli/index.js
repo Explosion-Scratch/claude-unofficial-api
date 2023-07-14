@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Claude } from '../index.js';
+import { Claude } from 'claude-ai';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -10,6 +10,7 @@ import meow from 'meow';
 import { existsSync, readFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
+import { homedir } from 'os';
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({
@@ -133,7 +134,7 @@ async function main() {
         const conversationOptions = [
             { name: 'Start new conversation', value: 'start_new' },
             { name: 'Clear conversations', value: 'clear' },
-            new inquirer.Separator(),
+            ...(conversations.length ? [new inquirer.Separator()] : []),
             ...conversations.map(c => ({ name: c.name || chalk.dim.italic('No name'), value: c.name })),
         ];
 
@@ -244,7 +245,7 @@ function getKey() {
     }
     let key;
     try {
-        key = readFileSync(cli.flags.key, 'utf-8').trim()
+        key = readFileSync(cli.flags.key.replace(`~`, homedir()), 'utf-8').trim()
     } catch (e) { }
     key = process.env.CLAUDE_KEY || key;
     if (!key || !key.startsWith(START_SEQ)) {
