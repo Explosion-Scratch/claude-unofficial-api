@@ -1,12 +1,17 @@
 export class Claude {
-    constructor({ sessionKey, proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai/' + endpoint, options }) }) {
+    constructor({ sessionKey, proxy }) {
         if (typeof proxy === 'string') {
             const HOST = proxy;
             this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
         } else if (typeof proxy === 'function') {
             this.proxy = proxy;
-        } else {
-            throw new Error('Proxy must be a string (host) or a function ({ endpoint /* endpoint (path) */, options /* fetch options */ }) => { endpoint /* full url */, options /* fetch options */ }');
+        } else if (proxy) {
+            console.log('Proxy supported formats:\n\t({ endpoint /* endpoint (path) */, options /* fetch options */ }) => { endpoint /* full url */, options /* fetch options */ }');
+            console.log('Received proxy: ' + proxy);
+            throw new Error('Proxy must be a string (host) or a function');
+        }
+        if (!this.proxy) {
+            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai/' + endpoint, options });
         }
         if (!sessionKey) {
             throw new Error('Session key required');
@@ -17,6 +22,9 @@ export class Claude {
         this.sessionKey = sessionKey;
     }
     request(endpoint, options) {
+        if (!this.proxy) {
+            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai/' + endpoint, options });
+        }
         const proxied = this.proxy({ endpoint, options });
         return fetch(proxied.endpoint, proxied.options);
     }
