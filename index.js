@@ -43,6 +43,10 @@ export class Claude {
         });
         return await response.json().catch(errorHandle("getOrganizations"));
     }
+    async clearConversations() {
+        const convos = await this.getConversations();
+        return Promise.all(convos.map(i => i.delete()))
+    }
     async startConversation(message, params) {
         const { uuid: convoID, name, summary, created_at, updated_at } = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {

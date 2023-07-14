@@ -132,6 +132,7 @@ async function main() {
 
         const conversationOptions = [
             { name: 'Start new conversation', value: 'start_new' },
+            { name: 'Clear conversations', value: 'clear' },
             new inquirer.Separator(),
             ...conversations.map(c => ({ name: c.name || chalk.dim.italic('No name'), value: c.name })),
         ];
@@ -143,6 +144,25 @@ async function main() {
             choices: conversationOptions,
             loop: false,
         });
+
+        if (conversation === 'clear') {
+            const { answer } = await inquirer.prompt({
+                name: 'answer',
+                type: 'confirm',
+                message: 'Are you sure you want to clear conversations?',
+                default: false,
+                choices: [{ name: 'Yes', value: true }, { name: 'No', value: false }],
+                loop: false,
+            })
+            if (!answer) { console.error(chalk.bold.red('Aborting')); process.exit(0); }
+            spinner.text = 'Clearing conversations...';
+            spinner.start();
+            await claude.clearConversations();
+            spinner.text = 'Done';
+            spinner.stop();
+            console.log(chalk.bold.green('Done!'));
+            process.exit(0);
+        }
 
         let selectedConversation;
 
@@ -181,7 +201,7 @@ async function main() {
             const spinner = ora('Thinking...').start();
             let text = chalk.dim.gray(`Waiting for Claude (${MODEL})...`);
             const cb = (msg) => {
-                if (!msg.completion){return}
+                if (!msg.completion) { return }
                 text = msg.completion;
                 spinner.text = chalk.gray.dim('Generating...') + '\n' + md(msg.completion);
             }
