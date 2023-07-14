@@ -18,6 +18,13 @@ This is a lightweight JavaScript library for interacting with the [Claude AI](ht
 npm install claude-ai
 ```
 
+## CLI installation
+```
+npm install -g claude-cli
+```
+> **Note**
+> Run `claude --help` for more info about the CLI
+
 ## Usage
 
 First, import the library:
