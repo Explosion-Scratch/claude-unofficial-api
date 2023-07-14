@@ -1,5 +1,11 @@
 export class Claude {
     constructor({ sessionKey }) {
+        if (!sessionKey) {
+            throw new Error('Session key required');
+        }
+        if (!sessionKey.startsWith('sk-ant-sid01')) {
+            throw new Error('Session key invalid: Must be in the format sk-ant-sid01-*****');
+        }
         this.sessionKey = sessionKey;
     }
 
@@ -58,15 +64,31 @@ export class Claude {
         return json.map(convo => new Conversation(this, { conversationId: convo.uuid, ...convo }));
     }
     async uploadFile(file) {
+        if (file.type.startsWith('text')) {
+            return {
+                "file_name": file.name,
+                "file_type": file.type,
+                "file_size": file.size,
+                "extracted_content": await readAsText(file)
+            }
+        }
+        process.exit(0);
         const payload = new FormData();
         payload.append('file', file);
         payload.append('orgUuid', this.organizationId);
         const response = await fetch('https://claude.ai/api/convert_document', {
+            headers: {
+                "cookie": `sessionKey=${this.sessionKey}`,
+                "accept": "application/json",
+            },
             method: 'POST',
             body: payload
         });
+        console.log('text:', await response.text())
+        return;
         const json = await response.json();
         if (!json.hasOwnProperty('extracted_content')) {
+            console.log(json);
             throw new Error('Invalid response');
         }
         return json;
@@ -104,7 +126,7 @@ export class Conversation {
         let resolve;
         let returnPromise = new Promise(r => (resolve = r));
         readStream(response, (a) => {
-            if (!a.toString().startsWith('data:')){
+            if (!a.toString().startsWith('data:')) {
                 return;
             }
             let parsed;
@@ -158,6 +180,10 @@ async function readStream(response, progressCallback) {
     }
 
     return new TextDecoder('utf-8').decode(body);
+}
+
+async function readAsText(file) {
+    return await file.arrayBuffer().then((ab) => new TextDecoder('utf-8').decode(ab));
 }
 
 export default Claude;
