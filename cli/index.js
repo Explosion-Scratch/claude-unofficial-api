@@ -1,11 +1,13 @@
-import { Claude } from './claude.js';
+#!/usr/bin/env node
+
+import { Claude } from 'claude-ai';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as marked from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import meow from 'meow';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
 
@@ -31,6 +33,7 @@ const cli = meow(`
     ${chalk.bold.white("--files")}            Comma-separated list of files to attach
     ${chalk.bold.white("--help")}             Show this message
     ${chalk.bold.white("--model")}            Claude model to use
+    ${chalk.bold.white("--markdown")}         Whether to render markdown in the terminal (defaults to true)
     ${chalk.bold.white("--key")}              Path to a text file containing the sessionKey cookie value from https://claude.ai
   
   Examples
@@ -41,6 +44,10 @@ const cli = meow(`
 `, {
     importMeta: import.meta,
     flags: {
+        markdown: {
+            type: 'boolean',
+            default: true,
+        },
         conversationId: {
             type: 'string'
         },
@@ -75,7 +82,7 @@ async function main() {
     await claude.init();
     MODEL = cli.flags.model;
     if (cli.input.length) {
-        const message = cli.input.join(' ')
+        let message = cli.input.join(' ')
         const info = {
             convos: []
         }
@@ -86,7 +93,7 @@ async function main() {
                     console.error(chalk.red.bold('Error: No response'));
                     process.exit(1);
                 }
-                console.log(cli.flags.json ? JSON.stringify(a) : a?.completion);
+                console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
                 process.exit(0);
             },
             attachments: [],
@@ -98,6 +105,9 @@ async function main() {
                 params.attachments.push(fileContent);
             }
         }
+        const r = await getFiles(message, claude);
+        params.attachments.push(...r.attachments);
+        message = r.question;
         if (flags.conversationId) {
             info.convos = await claude.getConversations();
             info.conversation = info.convos.find(c => c.id === flags.conversationId || c.name === flags.conversationId);
@@ -167,22 +177,21 @@ async function main() {
             if (tq === 'exit') {
                 process.exit(0);
             }
+            console.log(chalk.gray.dim.italic('Asking claude'));
             const spinner = ora('Thinking...').start();
             let text = chalk.dim.gray(`Waiting for Claude (${MODEL})...`);
             const cb = (msg) => {
+                if (!msg.completion){return}
                 text = msg.completion;
                 spinner.text = chalk.gray.dim('Generating...') + '\n' + md(msg.completion);
             }
             const params = {
                 attachments: [],
             }
-            const regex = /\[([^\]]+)]/g;
-            let match;
-            while (match = regex.exec(question)) {
-                const filename = match[1];
-                params.attachments.push(await uploadFile(claude, filename));
-                question = question.replace(match[0], `the uploaded file filename`);
-            }
+            const r = await getFiles(question, claude);
+            question = r.question;
+            params.attachments = r.attachments;
+
             if (!selectedConversation) {
                 selectedConversation = await claude.startConversation(question, {
                     progress: cb,
@@ -198,14 +207,14 @@ async function main() {
             }
             spinner.stop();
             spinner.clear();
-            console.log(chalk.gray.dim(`${new Date().toLocaleTimeString()} - (${MODEL})`) + '\n\n' + md(text.split('\n').map(i => '> ' + i).join('\n')) + '\n')
+            console.log(chalk.gray.dim(`${new Date().toLocaleTimeString()} - (${MODEL})`) + '\n\n' + md(text) + '\n')
         }
     }
 }
 
 main();
 function md(text) {
-    return marked.parse(text.trim()).trim();
+    return marked.parse(text?.trim() || '')?.trim();
 }
 
 function getKey() {
@@ -239,8 +248,27 @@ function getCookie(name, cookie) {
 }
 
 async function uploadFile(claude, filename) {
+    if (!existsSync(filename)) {
+        console.error(chalk.red.bold(`Error: File not found: ${filename}`));
+        process.exit(1);
+    }
+    console.log(chalk.gray.dim.italic('Uploading file ' + filename));
     const attachment = await claude.uploadFile(
         new File([readFileSync(filename, 'utf-8')], filename.split('/').slice(-1)[0], { type: mime.lookup(filename) })
     );
+    console.log(chalk.gray.dim.italic('Uploaded file ' + filename));
     return attachment;
+}
+
+async function getFiles(text, claude) {
+    let attachments = [];
+    let question = text;
+    const regex = /\[([^\]]+)]/g;
+    let match;
+    while (match = regex.exec(question)) {
+        const filename = match[1];
+        attachments.push(await uploadFile(claude, filename));
+        question = question.replace(match[0], `the uploaded file ${filename}`);
+    }
+    return { attachments, question }
 }

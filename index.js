@@ -84,10 +84,18 @@ export class Claude {
             method: 'POST',
             body: payload
         });
-        const json = await response.json();
+        let json;
+        try {
+            json = await response.json();
+        } catch (e) {
+            throw new Error('Invalid response when uploading ' + file);
+        }
+        if (response.status !== 200) {
+            throw new Error('Invalid response when uploading ' + file);
+        }
         if (!json.hasOwnProperty('extracted_content')) {
             console.log(json);
-            throw new Error('Invalid response');
+            throw new Error('Invalid response when uploading ' + file);
         }
         return json;
     }
@@ -182,10 +190,11 @@ async function readStream(response, progressCallback) {
 
 async function readAsText(file) {
     const buf = await file.arrayBuffer();
-    const allow = ['text', 'javascript', 'json', 'html', 'sh', 'xml', 'latex', 'ecmascript']
+    // const allow = ['text', 'javascript', 'json', 'html', 'sh', 'xml', 'latex', 'ecmascript']
+    const notText = ['doc', 'pdf', 'ppt', 'xls']
     return {
         content: new TextDecoder('utf-8').decode(buf),
-        isText: !!allow.find(i => file.type.includes(i))
+        isText: !notText.find(i => file.name.includes(i))
     }
 }
 

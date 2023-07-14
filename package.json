@@ -1,11 +1,10 @@
 {
   "name": "claude-ai",
   "type": "module",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Unofficial library for interacting with Claude AI",
   "main": "index.js",
   "scripts": {
-    "postinstall": "cd cli && npm i",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
