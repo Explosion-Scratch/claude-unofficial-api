@@ -6,7 +6,8 @@ This is a lightweight JavaScript library for interacting with the [Claude AI](ht
   
 ## Features
 - 💬 Start new conversations
-- 📎 Upload files 
+- 📎 Upload files
+- 🌎 Isomorphic (supposing you setup a proxy, cors make me sad)
 - 🔄 Async/await ready with modern syntax
 - 💾 Get and respond to existing conversations
 - 🚀 Upcoming: Retrying responses, [Reflexion](https://arxiv.org/abs/2303.11366) implementation ~~deleting chats, proxy support~~
@@ -79,11 +80,22 @@ See the [documentation](#documentation) below for the full API reference.
 
 The main class for interfacing with the Claude API.
 
+**Constructor:**
+```js
+const claude_instance = new Claude({
+  sessionKey: string,
+  proxy: string | ({endpoint, options}) => ({endpoint, options})
+})
+```
+
+- If proxy is a function it will be passed the API route to fetch as well as the fetch options which can then be manipulated before running through fetch. If you're feeling adventurous you could also just modify the `claude.request` functionnn (see source for more info)
+- If `proxy` is a string, it will simply be prepended before the API endpoint, example: `https://claude.ai/` 
+
 **Parameters:**
 
 - `sessionKey` - Your Claude `sessionKey` cookie 
 
-**Methods:**
+**Methods (on an instance):**
 
 - `startConversation(prompt)` - Starts a new conversation with the given prompt message
 - `getConversations()` - Gets recent conversations
@@ -102,9 +114,9 @@ Returned by `Claude.startConversation()`.
 
 **SendMessage Options:**
 
-- `timezone` - The timezone for completion  
+- `timezone` - The timezone for completion 
 - `attachments` - Array of file attachments 
-- `model` - The Claude model to use (default: `claude-2`)
+- `model` - The Claude model to use (default: `claude-2`, other models that I know of include `claude-1.3`, and `claude-instant-100k`. Seems to also accept `claude-1` but transform it to `claude-1.3`)
 - `done` - Callback when completed
 - `progress` - Progress callback
 
