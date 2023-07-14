@@ -87,6 +87,7 @@ The main class for interfacing with the Claude API.
 
 - `startConversation(prompt)` - Starts a new conversation with the given prompt message
 - `getConversations()` - Gets recent conversations
+- `clearConversations()` - Clear all conversations
 - `uploadFile(file)` - Uploads a file 
 
 ### `Conversation`
@@ -97,6 +98,7 @@ Returned by `Claude.startConversation()`.
 
 - `sendMessage(message, options)` - Sends a followup message in the conversation  
 - `getInfo()` - Gets the conversation (includes messages, name, created_at, update_at, etc)
+- `delete()` - Delete the conversation (returns fetch response)
 
 **SendMessage Options:**
 
