@@ -79,6 +79,8 @@ Returned by `Claude.startConversation()`.
 
 - `delete()` <Promise<Response>> - Delete the conversation
 
+- `rename(title)` <Promise<Response>> - Rename a conversation
+
 - `retryMessage()` <Promise<MessageStream>> - Retry the last message in the conversation (claude's API doesn't support retrying other messages than the most recent)
 
 - `getMessages` <Promise<Message[]>> - The same as calling `getInfo().then(a => a.chat_messages)`

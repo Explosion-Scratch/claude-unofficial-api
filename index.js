@@ -194,6 +194,9 @@ export class Conversation {
         }
         return await this.request('/api/rename_chat', {
             method: 'POST',
+            headers: {
+                "cookie": `sessionKey=${this.claude.sessionKey}`
+            },
             body: JSON.stringify({
                 conversation_uuid: this.conversationId,
                 organization_uuid: this.claude.organizationId,
