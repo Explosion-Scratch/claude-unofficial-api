@@ -144,7 +144,7 @@ export class Conversation {
         Object.assign(this, { name, summary, created_at, updated_at })
     }
     async retry(params) {
-        return this.sendMessage("", { retry: true, ...params });
+        return this.sendMessage("", { ...params, retry: true });
     }
     async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model = "claude-2", done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
         const body = {
@@ -280,6 +280,10 @@ class Message {
         Object.assign(this, { conversation, claude });
         this.request = claude.request;
         this.json = { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments };
+        Object.assign(this, this.json);
+    }
+    toJSON() {
+        return this.json;
     }
     get createdAt() {
         return new Date(this.json.created_at);

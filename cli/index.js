@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { Claude } from 'claude-ai';
+import { Claude } from '../index.js';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as marked from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import meow from 'meow';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
@@ -21,6 +21,9 @@ const HELP = `${chalk.bold.white("Usage")}:
 !exit    Exit the program
 !help    Show this message
 !clear   Clear the console
+!retry   Retry the last message
+!files   Show the list of files uploaded to this conversation
+!convos  List conversations
 
 (Also works with single word commands like "exit", "help" or "clear")`
 
@@ -178,6 +181,9 @@ async function main() {
                 type: 'input',
                 message: chalk.dim.gray(`(${MODEL})`) + chalk.bold.cyan(' >'),
             });
+            if (!question.trim()?.length) {
+                continue;
+            }
             if (question.startsWith('!')) {
                 question = question.replace("!", "")
             }
@@ -186,28 +192,54 @@ async function main() {
                 console.log(HELP);
                 continue;
             }
+            if (tq === 'convos') {
+                setTimeout(() => (console.clear(),main()));
+                return;
+            }
             if (tq === 'clear') {
                 console.clear();
                 console.log(chalk.dim.italic.gray("Cleared console"))
                 continue;
             }
             if (tq === 'export') {
-                // TODO:
+                const filename = `conversation-${selectedConversation.conversationId}.json`;
+                writeFileSync(filename, JSON.stringify(await selectedConversation.getInfo(), null, 2))
+                console.log(chalk.bold.blue('Exported current conversation to ' + chalk.bold.white(filename)))
                 continue;
             }
-            if (tq === 'exit') {
+            if (tq === 'exit' || tq === 'quit') {
                 process.exit(0);
             }
+            if (tq === 'files') {
+                if (!selectedConversation) {
+                    console.error(chalk.red.bold('No conversation selected'));
+                    continue;
+                }
+                const messages = await selectedConversation.getMessages();
+                const attachments = messages.map(i => i.attachments).flat();
+                if (!attachments?.length) {
+                    console.log(chalk.bold.italic.blue('No files uploaded yet!') + '\n\n' + chalk.gray.dim('Examples of uploading a file:\n\n' + chalk.bold.white('Find some trends in [data.csv]') + '\n\nOr:\n\n' + chalk.bold.white('claude --files file1.txt,file2.txt')));
+                    continue;
+                }
+                const TABLE = '| File Name | Size | Tokens | Created At |\n|-|-|-|-|\n' + attachments.map(i => `| ${chalk.bold.white(i.file_name)} ${chalk.dim.gray.italic(`(${i.file_type})`)} | ${chalk.yellowBright(formatBytes(i.file_size))} | ${chalk.dim.blue("~ " + Math.round(i.extracted_content.length / 4) + " tokens")} | ${i.created_at} | `).join('\n') + `\n| ${chalk.gray.dim.italic('Total: ' + attachments.length + ' file' + (attachments.length > 1 ? 's' : ''))} | ${chalk.yellowBright(formatBytes(attachments.reduce((a, b) => a + b.file_size, 0)))} | ${chalk.dim.blue('~ ' + Math.round(attachments.reduce((a, b) => a + b.extracted_content.length / 4, 0)) + ' tokens')} |  |\n`;
+                console.log(md(TABLE));
+                continue;
+            }
             console.log(chalk.gray.dim.italic('Asking claude'));
-            const spinner = ora('Thinking...').start();
+            const params = {
+                attachments: [],
+            }
+            if (tq === 'retry') {
+                params.retry = true
+                question = "";
+            }
+            const spinner = ora(params.retry ? 'Retrying message' : 'Thinking...').start();
             let text = chalk.dim.gray(`Waiting for Claude (${MODEL})...`);
             const cb = (msg) => {
                 if (!msg.completion) { return }
                 text = msg.completion;
-                spinner.text = chalk.gray.dim('Generating...') + '\n' + md(msg.completion);
-            }
-            const params = {
-                attachments: [],
+                spinner.text = chalk.gray.dim(params.retry ? 'Re-generating...' : 'Generating...') + '\n' + md(msg.completion);
+                spinner.render();
             }
             const r = await getFiles(question, claude);
             question = r.question;
@@ -292,4 +324,12 @@ async function getFiles(text, claude) {
         question = question.replace(match[0], `the uploaded file ${filename}`);
     }
     return { attachments, question }
+}
+
+// https://stackoverflow.com/a/42408230
+function formatBytes(n) {
+    const k = n > 0 ? Math.floor((Math.log2(n) / 10)) : 0;
+    const rank = (k > 0 ? 'KMGT'[k - 1] : '') + 'b';
+    const count = Math.floor(n / Math.pow(1024, k));
+    return count + rank;
 }
