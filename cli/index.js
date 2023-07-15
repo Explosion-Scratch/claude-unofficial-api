@@ -210,6 +210,13 @@ async function main() {
             if (tq === 'exit' || tq === 'quit') {
                 process.exit(0);
             }
+            if (tq === 'delete') {
+                let sp = ora('Deleting conversation...').start();
+                await selectedConversation.delete();
+                sp.stop();
+                setTimeout(() => (console.clear(), main()));
+                return;
+            }
             if (tq === 'files') {
                 if (!selectedConversation) {
                     console.error(chalk.red.bold('No conversation selected'));

@@ -188,6 +188,19 @@ export class Conversation {
         })
         return returnPromise;
     }
+    async rename(title) {
+        if (!title?.length) {
+            throw new Error('Title required');
+        }
+        return await this.request('/api/rename_chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                conversation_uuid: this.conversationId,
+                organization_uuid: this.claude.organizationId,
+                title,
+            })
+        }).catch(errorHandle("Rename conversation " + this.conversationId));
+    }
     async delete() {
         return await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
