@@ -64,19 +64,24 @@ Returned by `Claude.startConversation()`.
 
 #### Methods
 
-- `sendMessage(message, options)` <Promise<Message>> - Sends a followup message in the conversation
+- `sendMessage(message, options)` <Promise<MessageStream>> - Sends a followup message in the conversation
 
   - `message` <string> - The message to send
   - `options` <object> 
     - `timezone` <string> - The timezone for completion (default: `"America/New_York"`)
     - `attachments` <File[]> - Array of file attachments
     - `model` <string> - The Claude model to use (default: `"claude-2"`)
-    - `done` <function> - Callback when completed
-    - `progress` <function> - Progress callback
+    - `done` <(MessageStream) => void> - Callback when completed
+    - `progress` <(MessageStream) => void> - Progress callback from the progress, a block of text where each line starts with "data:" then has some JSON.
+    - `rawResponse` <function> Passed the raw response text 
 
 - `getInfo()` <Promise<Conversation>> - Gets the conversation info (includes messages, name, created_at, updated_at, etc)
 
 - `delete()` <Promise<Response>> - Delete the conversation
+
+- `retryMessage()` <Promise<MessageStream>> - Retry the last message in the conversation (claude's API doesn't support retrying other messages than the most recent)
+
+- `getMessages` <Promise<Message[]>> - The same as calling `getInfo().then(a => a.chat_messages)`
 
 #### Callbacks
 
@@ -90,6 +95,20 @@ Returned by `Claude.startConversation()`.
   - `response` <object> 
     - `completion` <string> - The text response from Claude (if available)
 
+### `Message` class
+
+Returned in `conversationInstance.getInfo()`'s response (`chat_messages` key)
+
+#### Methods
+- `sendFeedback(type, reason)` <Promise<{uuid, type, reason, created_at, updated_at}>> - Send feedback about a message
+
+#### Properties
+- `createdAt` <Date> - Created at date
+- `editedAt` <Date> - Edited at date (Note, there's currently no way to edit messages via the API yet)
+- `updatedAt` <Date> - Updated at date
+- `isBot` <Boolean> - Whether the message was send by a human or claude
+- `json` <Object{ uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments }> - The JSON for the message (this is what's returned from the chat_messages key of a conversation's getInfo fetch request)
+
 ### Types
 ```ts
 type Attachment {
@@ -97,6 +116,17 @@ type Attachment {
     created_at: string
     filetype: string
     size: int
+}
+```
+
+```ts
+type MessageStream {
+  completion: string
+  stop_reason: string | null
+  model: string
+  log_id: string
+  // "within_limit" or probably "exceeded_limit"
+  messageLimit: {type: string}
 }
 ```
 

@@ -143,8 +143,10 @@ export class Conversation {
         }
         Object.assign(this, { name, summary, created_at, updated_at })
     }
-
-    async sendMessage(message, { timezone = "America/New_York", attachments = [], model = "claude-2", done = () => { }, progress = () => { } } = {}) {
+    async retry(params) {
+        return this.sendMessage("", { retry: true, ...params });
+    }
+    async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model = "claude-2", done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
         const body = {
             organization_uuid: this.claude.organizationId,
             conversation_uuid: this.conversationId,
@@ -156,7 +158,7 @@ export class Conversation {
                 model,
             }
         };
-        const response = await this.request("/api/append_message", {
+        const response = await this.request(`/api/${retry ? "retry_message" : "append_message"}`, {
             method: "POST",
             headers: {
                 "accept": "text/event-stream,text/event-stream",
@@ -167,11 +169,12 @@ export class Conversation {
         });
         let resolve;
         let returnPromise = new Promise(r => (resolve = r));
+        let parsed;
         readStream(response, (a) => {
+            rawResponse(a);
             if (!a.toString().startsWith('data:')) {
                 return;
             }
-            let parsed;
             try {
                 parsed = JSON.parse(a.toString().replace(/^data\:/, '').split('\n\ndata:')[0]?.trim() || "{}");
             } catch (e) {
@@ -200,7 +203,18 @@ export class Conversation {
                 "cookie": `sessionKey=${this.claude.sessionKey}`
             }
         });
-        return await response.json().catch(errorHandle("getInfo"));
+        return await response.json().then(this.#formatMessages('chat_messages')).catch(errorHandle("getInfo"));
+    }
+    getMessages() {
+        return this.getInfo().then((a) => a.chat_messages).catch(errorHandle("getMessages"));
+    }
+    #formatMessages(message_key) {
+        return (response) => {
+            return {
+                ...response,
+                [message_key]: response[message_key].map(i => new Message({ claude: this.claude, conversation: this }, { ...i })),
+            }
+        }
     }
 }
 
@@ -258,6 +272,43 @@ function uuid() {
         u += (c == '-' || c == '4') ? c : h[v]; rb = i % 8 == 0 ? Math.random() * 0xffffffff | 0 : rb >> 4
     }
     return u
+}
+
+
+class Message {
+    constructor({ conversation, claude }, { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments }) {
+        Object.assign(this, { conversation, claude });
+        this.request = claude.request;
+        this.json = { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments };
+    }
+    get createdAt() {
+        return new Date(this.json.created_at);
+    }
+    get updatedAt() {
+        return new Date(this.json.updated_at);
+    }
+    get editedAt() {
+        return new Date(this.json.edited_at);
+    }
+    get isBot() {
+        return this.sender === "assistant";
+    }
+    async sendFeedback(type, reason = "") {
+        const FEEDBACK_TYPES = ["flag/bug", "flag/harmful", "flag/other"];
+        if (!FEEDBACK_TYPES.includes(type)) {
+            throw new Error("Invalid feedback type, must be one of: " + FEEDBACK_TYPES.join(", "));
+        }
+        return await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversation.conversationId}/chat_messages/${this.uuid}/chat_feedback`, {
+            "headers": {
+                "cookie": `sessionKey=${this.claude.sessionKey}`
+            },
+            "body": JSON.stringify({
+                type,
+                reason,
+            }),
+            "method": "POST",
+        }).catch(errorHandle("Send feedback"));
+    }
 }
 
 export default Claude;
