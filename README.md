@@ -2,7 +2,7 @@
 
 https://github.com/Explosion-Scratch/claude-unofficial-api/assets/61319150/6c3f706d-bddf-42e6-9745-aa1f7561ca40
 
-This is a lightweight JavaScript library for interacting with the [Claude AI](https://www.claude.ai/) chatbot's unofficial internal API. 
+This is a lightweight JavaScript library for interacting with the [Claude AI](https://www.claude.ai/) chatbot's unofficial internal API. [CLI installation](#cli-installation), [API installation + usage](#usage)
   
 ## Features
 - 💬 Start new conversations
@@ -25,7 +25,7 @@ npm install claude-ai
 npm install -g claude-cli
 ```
 > **Note**
-> Run `claude --help` for more info about the CLI
+> Run `claude --help` or see [CLI_DOCS.md](CLI_DOCS.md) for more info about the CLI
 
 ## Usage
 
