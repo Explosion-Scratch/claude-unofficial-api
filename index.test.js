@@ -8,6 +8,12 @@ const UUIDS = {
     conversation2: uuid(),
     message: uuid(),
 }
+const demoFile = {
+    "file_name": "test.txt",
+    "file_type": "text/plain",
+    "file_size": 11,
+    "extracted_content": "Hello world",
+}
 const fetchCalls = [];
 
 const mockResponse = () => ({
@@ -79,7 +85,7 @@ global.fetch = jest.fn(async function fetchMock(url, params) {
                     "updated_at": "2023-07-17T12:51:05.921141+00:00",
                     "edited_at": null,
                     "chat_feedback": null,
-                    "attachments": []
+                    "attachments": [demoFile]
                 },
                 {
                     "uuid": "1c7130af-9be9-4e4f-93d2-0011931f6bf8",
@@ -195,6 +201,12 @@ describe('Claude', () => {
         })
     });
     describe('methods', () => {
+        it('gets models', () => {
+            expect(claude.models()).toBeInstanceOf(Array)
+        })
+        it('total tokens', () => {
+            expect(claude.totalTokens()).toBe(100_000)
+        })
         it('ready', async () => {
             expect(claude.ready).toBe(true);
         });
@@ -203,15 +215,19 @@ describe('Claude', () => {
             expect(response).toBeInstanceOf(Array);
             expect(response[0].json).toBeDefined()
         })
+        it('gets conversation by ID', async () => {
+            const convo = await claude.getConversation(UUIDS.conversation);
+            expect(convo).toBeDefined();
+            expect(convo.conversationId).toBe(UUIDS.conversation);
+        })
         it('uploads files', async () => {
             const file = new File(["Hello world"], "test.txt", { type: 'text/plain' });
             const response = await claude.uploadFile(file)
-            expect(response).toStrictEqual({
-                "file_name": file.name,
-                "file_type": file.type,
-                "file_size": file.size,
-                "extracted_content": "Hello world",
-            })
+            expect(response).toStrictEqual(demoFile)
+        })
+        it('gets files', async () => {
+            const convo = await claude.getConversation(UUIDS.conversation);
+            expect(await convo.getFiles()).toStrictEqual([demoFile])
         })
         it('uploads non-text files', async () => {
             const text = 'This is a demo file\n';

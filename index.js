@@ -23,6 +23,22 @@ export class Claude {
         if (fetch) { this.fetch = fetch }
         this.sessionKey = sessionKey;
     }
+    models() {
+        return ['claude-2', 'claude-1.3', 'claude-instant', 'claude-instant-100k']
+    }
+    totalTokens(model) {
+        // TODO: Figure out if this is correct, the blog article said "We’ve expanded Claude’s context window from 9K to 100K tokens"
+        const TOKENS = {
+            "claude-2": 100_000,
+            "claude-1.3": 9000,
+            "claude-instant": 9000,
+            "claude-instant-100k": 100_000
+        }
+        return TOKENS[model || this.defaultModel()];
+    }
+    defaultModel() {
+        return this.models()[0];
+    }
     request(endpoint, options) {
         // Can't figure out a way to test this so I'm just assuming it works
         if (!(this.fetch || globalThis.fetch)) {
@@ -90,6 +106,9 @@ export class Claude {
         }).then(r => r.json()).catch(errorHandle("startConversation generate_chat_title"));
         return convo;
     }
+    async getConversation(id) {
+        return new Conversation(this, { conversationId: id })
+    }
     async getConversations() {
         const response = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
@@ -142,7 +161,7 @@ export class Claude {
 }
 
 export class Conversation {
-    constructor(claude, { conversationId, name = "", summary = "", created_at, updated_at }) {
+    constructor(claude, { model, conversationId, name = "", summary = "", created_at, updated_at }) {
         this.claude = claude;
         this.conversationId = conversationId;
         this.request = claude.request;
@@ -155,12 +174,24 @@ export class Conversation {
         if (!this.conversationId) {
             throw new Error('Conversation ID required');
         }
+        this.model = model || this.claude.defaultModel();
         Object.assign(this, { name, summary, created_at: created_at || new Date().toISOString(), updated_at: updated_at || new Date().toISOString() })
+    }
+    toJSON() {
+        return {
+            conversationId: this.conversationId,
+            uuid: this.conversationId,
+            name: this.name,
+            summary: this.summary,
+            created_at: this.created_at,
+            updated_at: this.updated_at,
+            model: this.model,
+        }
     }
     async retry(params) {
         return this.sendMessage("", { ...params, retry: true });
     }
-    async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model = "claude-2", done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
+    async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model, done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
         const body = {
             organization_uuid: this.claude.organizationId,
             conversation_uuid: this.conversationId,
@@ -169,7 +200,7 @@ export class Conversation {
             completion: {
                 prompt: message,
                 timezone,
-                model,
+                model: model || this.model,
             }
         };
         const response = await this.request(`/api/${retry ? "retry_message" : "append_message"}`, {
@@ -235,11 +266,17 @@ export class Conversation {
         });
         return await response.json().then(this.#formatMessages('chat_messages')).catch(errorHandle("getInfo"));
     }
+    getFiles() {
+        return this.getMessages().then(r => r.map(i => i.attachments)).then(r => r.flat()).catch(errorHandle('getFiles'));
+    }
     getMessages() {
         return this.getInfo().then((a) => a.chat_messages).catch(errorHandle("getMessages"));
     }
     #formatMessages(message_key) {
         return (response) => {
+            if (!response[message_key]) {
+                return response;
+            }
             return {
                 ...response,
                 [message_key]: response[message_key].map(i => new Message({ claude: this.claude, conversation: this }, { ...i })),
