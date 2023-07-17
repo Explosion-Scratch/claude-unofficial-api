@@ -20,5 +20,8 @@
     "unofficial"
   ],
   "author": "@Explosion-Scratch",
-  "license": "Unlicense"
+  "license": "Unlicense",
+  "dependencies": {
+    "isomorphic-fetch": "^3.0.0"
+  }
 }

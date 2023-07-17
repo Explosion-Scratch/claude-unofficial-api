@@ -1,3 +1,5 @@
+import "isomorphic-fetch";
+
 export class Claude {
     constructor({ sessionKey, proxy }) {
         if (typeof proxy === 'string') {
