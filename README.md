@@ -2,7 +2,7 @@
 
 https://github.com/Explosion-Scratch/claude-unofficial-api/assets/61319150/6c3f706d-bddf-42e6-9745-aa1f7561ca40
 
-This is a lightweight JavaScript library for interacting with the [Claude AI](https://www.claude.ai/) chatbot's unofficial internal API. [CLI installation](#cli-installation), [API installation + usage](#usage)
+This is a lightweight (isomorphic, 0 dependency) JavaScript library for interacting with the [Claude AI](https://www.claude.ai/) chatbot's unofficial internal API. [CLI installation](#cli-installation), [API installation + usage](#usage)
   
 ## Features
 - 💬 Start new conversations
@@ -10,7 +10,9 @@ This is a lightweight JavaScript library for interacting with the [Claude AI](ht
 - 🌎 Isomorphic (supposing you setup a proxy, cors make me sad)
 - 🔄 Async/await ready with modern syntax
 - 💾 Get and respond to existing conversations
-- 🚀 Upcoming: Retrying responses, [Reflexion](https://arxiv.org/abs/2303.11366) implementation ~~deleting chats, proxy support~~
+- 🚀 Upcoming
+  - CLI: Retrying responses, [Reflexion](https://arxiv.org/abs/2303.11366) implementation, prompt templates, auto conversation saving
+  - API: Better error handling, automated unit tests
 - 💪 Supports all claude models (`claude-2`, `claude-1.3`, `claude-instant-100k` - See `--model` flag)
 
 
