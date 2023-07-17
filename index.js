@@ -136,7 +136,7 @@ export class Claude {
 }
 
 export class Conversation {
-    constructor(claude, { conversationId, name, summary, created_at, updated_at }) {
+    constructor(claude, { conversationId, name = "", summary = "", created_at, updated_at }) {
         this.claude = claude;
         this.conversationId = conversationId;
         this.request = claude.request;
@@ -149,7 +149,7 @@ export class Conversation {
         if (!this.conversationId) {
             throw new Error('Conversation ID required');
         }
-        Object.assign(this, { name, summary, created_at, updated_at })
+        Object.assign(this, { name, summary, created_at: created_at || new Date().toISOString(), updated_at: updated_at || new Date().toISOString() })
     }
     async retry(params) {
         return this.sendMessage("", { ...params, retry: true });
