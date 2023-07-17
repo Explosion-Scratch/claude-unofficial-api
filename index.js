@@ -273,7 +273,7 @@ async function readAsText(file) {
 
 function errorHandle(msg) {
     return (e) => {
-        console.error(chalk.red.bold(`Error at: ${msg}`))
+        console.error(`Error at: ${msg}`)
         console.error(e);
         process.exit(0);
     }
