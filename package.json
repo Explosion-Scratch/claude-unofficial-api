@@ -5,7 +5,7 @@
   "description": "Unofficial library for interacting with Claude AI",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -23,5 +23,9 @@
   "license": "Unlicense",
   "dependencies": {
     "isomorphic-fetch": "^3.0.0"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.22.9",
+    "dotenv": "^16.3.1"
   }
 }

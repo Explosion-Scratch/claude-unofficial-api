@@ -2,6 +2,7 @@ import "isomorphic-fetch";
 
 export class Claude {
     constructor({ sessionKey, proxy }) {
+        this.ready = false;
         if (typeof proxy === 'string') {
             const HOST = proxy;
             this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
@@ -13,7 +14,7 @@ export class Claude {
             throw new Error('Proxy must be a string (host) or a function');
         }
         if (!this.proxy) {
-            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai/' + endpoint, options });
+            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai' + endpoint, options });
         }
         if (!sessionKey) {
             throw new Error('Session key required');
@@ -25,15 +26,20 @@ export class Claude {
     }
     request(endpoint, options) {
         if (!this.proxy) {
-            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai/' + endpoint, options });
+            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai' + endpoint, options });
+        }
+        if (typeof this.proxy === 'string') {
+            const HOST = this.proxy;
+            this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
         }
         const proxied = this.proxy({ endpoint, options });
-        return fetch(proxied.endpoint, proxied.options);
+        return (this.fetch || fetch)(proxied.endpoint, proxied.options);
     }
     async init() {
         const organizations = await this.getOrganizations();
         this.organizationId = organizations[0].uuid;
         this.recent_conversations = await this.getConversations();
+        this.ready = true;
     }
 
     async getOrganizations() {
@@ -49,7 +55,7 @@ export class Claude {
         const convos = await this.getConversations();
         return Promise.all(convos.map(i => i.delete()))
     }
-    async startConversation(message, params) {
+    async startConversation(message, params = {}) {
         const { uuid: convoID, name, summary, created_at, updated_at } = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
                 "content-type": "application/json",
@@ -293,8 +299,14 @@ function uuid() {
 }
 
 
-class Message {
+export class Message {
     constructor({ conversation, claude }, { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments }) {
+        if (!claude) {
+            throw new Error('Claude not initialized');
+        }
+        if (!conversation) {
+            throw new Error('Conversation not initialized');
+        }
         Object.assign(this, { conversation, claude });
         this.request = claude.request;
         this.json = { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments };
