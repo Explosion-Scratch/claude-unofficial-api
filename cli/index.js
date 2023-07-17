@@ -283,10 +283,12 @@ function getKey() {
         return cli.flags.key;
     }
     let key;
+    if (process.env.CLAUDE_KEY) {
+        key = process.env.CLAUDE_KEY;
+    }
     try {
         key = readFileSync(cli.flags.key.replace(`~`, homedir()), 'utf-8').trim()
     } catch (e) { }
-    key = process.env.CLAUDE_KEY || key;
     if (!key || !key.startsWith(START_SEQ)) {
         if (!key) {
             console.error(chalk.red.bold('Error: No sessionKey cookie'));
