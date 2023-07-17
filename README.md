@@ -12,7 +12,7 @@ This is a lightweight (isomorphic, 0 dependency) JavaScript library for interact
 - 💾 Get and respond to existing conversations
 - 🚀 Upcoming
   - CLI: Retrying responses, [Reflexion](https://arxiv.org/abs/2303.11366) implementation, prompt templates, auto conversation saving
-  - API: Better error handling, automated unit tests
+  - API: Better error handling, automated unit tests, caching layer, searching, `setActiveModel`, list available models, send message directly to existing conversation, hooks for events
 - 💪 Supports all claude models (`claude-2`, `claude-1.3`, `claude-instant-100k` - See `--model` flag)
 
 
