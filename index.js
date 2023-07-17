@@ -1,7 +1,5 @@
-import "isomorphic-fetch";
-
 export class Claude {
-    constructor({ sessionKey, proxy }) {
+    constructor({ sessionKey, proxy, fetch }) {
         this.ready = false;
         if (typeof proxy === 'string') {
             const HOST = proxy;
@@ -22,9 +20,14 @@ export class Claude {
         if (!sessionKey.startsWith('sk-ant-sid01')) {
             throw new Error('Session key invalid: Must be in the format sk-ant-sid01-*****');
         }
+        if (fetch) { this.fetch = fetch }
         this.sessionKey = sessionKey;
     }
     request(endpoint, options) {
+        // Can't figure out a way to test this so I'm just assuming it works
+        if (!(this.fetch || globalThis.fetch)) {
+            throw new Error(`No fetch available in your environment. Use node-18 or later, a modern browser, or add the following code to your project:\n\nimport "isomorphic-fetch";\nconst claude = new Claude({fetch: fetch, sessionKey: "sk-ant-sid01-*****"});`);
+        }
         if (!this.proxy) {
             this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai' + endpoint, options });
         }
@@ -33,7 +36,7 @@ export class Claude {
             this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
         }
         const proxied = this.proxy({ endpoint, options });
-        return (this.fetch || fetch)(proxied.endpoint, proxied.options);
+        return (this.fetch || globalThis.fetch)(proxied.endpoint, proxied.options);
     }
     async init() {
         const organizations = await this.getOrganizations();
