@@ -7,12 +7,14 @@ This is a lightweight (isomorphic, 0 dependency) JavaScript library for interact
 ## Features
 - 💬 Start new conversations
 - 📎 Upload files
+- 🧪 [Unit tests included with 85% coverage of code and 100% pass rates!](https://github.com/Explosion-Scratch/claude-unofficial-api/assets/61319150/b65d32f4-2b43-4bc3-8e2c-4cf977fe7e89)
+ 
 - 🌎 Isomorphic (supposing you setup a proxy, cors make me sad)
 - 🔄 Async/await ready with modern syntax
 - 💾 Get and respond to existing conversations
 - 🚀 Upcoming
   - CLI: Retrying responses, [Reflexion](https://arxiv.org/abs/2303.11366) implementation, prompt templates, auto conversation saving
-  - API: Better error handling, automated unit tests, caching layer, searching, `setActiveModel`, list available models, send message directly to existing conversation, hooks for events, used tokens count (percentage/raw), token estimator, available tokens for model
+  - API: Better error handling, ~~automated unit tests~~, caching layer, searching, `setActiveModel`, list available models, send message directly to existing conversation, hooks for events, used tokens count (percentage/raw), token estimator, available tokens for model
 - 💪 Supports all claude models (`claude-2`, `claude-1.3`, `claude-instant-100k` - See `--model` flag)
 
 
