@@ -56,6 +56,9 @@ export class Claude {
     }
     async init() {
         const organizations = await this.getOrganizations();
+        if (organizations.error) {
+            throw new Error(JSON.stringify(organizations, null, 2))
+        }
         this.organizationId = organizations[0].uuid;
         this.recent_conversations = await this.getConversations();
         this.ready = true;
