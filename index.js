@@ -39,6 +39,26 @@ export class Claude {
     defaultModel() {
         return this.models()[0];
     }
+    async sendMessage(message, { conversation = null, temporary = true, ...params }) {
+        if (!conversation) {
+            let out;
+            let convo = await this.startConversation(message, {
+                ...params,
+                done: (a) => {
+                    if (params.done) {
+                        params.done(a);
+                    }
+                    out = a;
+                }
+            })
+            if (temporary) { await convo.delete(); }
+            return out;
+        } else {
+            return await this.getConversation(conversation).sendMessage(message, {
+                ...params,
+            })
+        }
+    }
     request(endpoint, options) {
         // Can't figure out a way to test this so I'm just assuming it works
         if (!(this.fetch || globalThis.fetch)) {
@@ -107,6 +127,9 @@ export class Claude {
         return convo;
     }
     async getConversation(id) {
+        if (id instanceof Conversation || id.conversationId) {
+            return new Conversation(this, { conversationId: id.conversationId })
+        }
         return new Conversation(this, { conversationId: id })
     }
     async getConversations() {
