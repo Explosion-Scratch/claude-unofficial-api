@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 
-import { Claude } from 'claude-ai';
+import { Claude } from '../index.js';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as marked from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import meow from 'meow';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
+import { dirname, join } from 'path';
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({
@@ -136,6 +137,7 @@ async function main() {
 
         const conversationOptions = [
             { name: 'Start new conversation', value: 'start_new' },
+            { name: 'Export conversations', value: 'export' },
             { name: 'Clear conversations', value: 'clear' },
             ...(conversations.length ? [new inquirer.Separator()] : []),
             ...conversations.map(c => ({ name: c.name || chalk.dim.italic('No name'), value: c.name })),
@@ -148,6 +150,55 @@ async function main() {
             choices: conversationOptions,
             loop: false,
         });
+
+        if (conversation === 'export') {
+            const { answer } = await inquirer.prompt({
+                name: 'answer',
+                type: 'checkbox',
+                message: 'Export format',
+                choices: [{ name: 'JSON', value: 'json' }, { name: 'Markdown', value: 'markdown' }, { name: 'HTML', value: 'html' }],
+            })
+            if (!existsSync('claude-conversations')) { mkdirSync('claude-conversations'); }
+            const conversations = await claude.getConversations();
+            await Promise.all(conversations.map(async (convo) => {
+                const info = await convo.getInfo();
+                if (answer.includes('json')) {
+                    const filename = `${formatName(info.name)}-${convo.conversationId}.json`;
+                    writeFileSync(join('claude-conversations', filename), JSON.stringify(info, null, 2))
+                    console.log(chalk.bold.blue(`Exported ${convo.conversationId} (${convo.name}) conversation to ` + chalk.bold.white(filename)))
+                }
+                if (answer.includes('markdown')) {
+                    const filename = `${formatName(info.name)}-${convo.conversationId}.md`;
+                    writeFileSync(join('claude-conversations', filename), `---\ncreated_at: ${info.created_at}\nupdated_at: ${info.updated_at}\ntitle: ${info.name}\nuuid: ${info.uuid}\n---\n\n# ${info.name}\n_Created at ${new Date(info.created_at).toLocaleDateString('en-US', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        year: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })} - \`${info.uuid}\`_\n\n${info.chat_messages.map(i => {
+                        return `## **${i.sender === 'human' ? "User" : "Claude"}**\n\n_(${new Date(i.created_at).toLocaleDateString('en-US', {
+                            month: '2-digit',
+                            day: '2-digit',
+                            year: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })})_\n\n${i.text}${i.attachments ? '\n\n' : ''}${i.attachments.map(j => {
+                            return `<details>\n<summary>${j.file_name} (${formatBytes(j.file_size)})</summary>\n\n\n\`\`\`${j.file_name.split('.').slice(-1)[0]}\n${j.extracted_content}\n\`\`\`\n\n\n</details>`;
+                        }).join('\n')}`;
+                    }).join('\n\n\n\n')}`);
+                    console.log(chalk.bold.blue(`Exported ${convo.conversationId} (${convo.name}) conversation to ` + chalk.bold.white(filename)))
+                }
+                if (answer.includes('html')) {
+                    const filename = `${formatName(info.name)}-${convo.conversationId}.html`;
+                    writeFileSync(join('claude-conversations', filename), readFileSync(join(dirname(import.meta.url.replace('file:/', '')), 'html_template.html'), 'utf-8').replace('{TITLE}', info.name).replace('"{CONVERSATION}"', JSON.stringify(info)));
+                    console.log(chalk.bold.blue(`Exported ${convo.conversationId} (${convo.name}) conversation to ` + chalk.bold.white(filename)))
+                }
+                function formatName(name) {
+                    return name.slice(0, 25).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                }
+            }))
+            process.exit(0);
+        }
 
         if (conversation === 'clear') {
             const { answer } = await inquirer.prompt({
@@ -193,7 +244,7 @@ async function main() {
                 continue;
             }
             if (tq === 'convos') {
-                setTimeout(() => (console.clear(),main()));
+                setTimeout(() => (console.clear(), main()));
                 return;
             }
             if (tq === 'clear') {
