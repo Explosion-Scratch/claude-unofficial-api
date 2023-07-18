@@ -13,7 +13,7 @@ import mime from 'mime-types';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 import "isomorphic-fetch";
-import { File } from "web-file-polyfill";
+import { File } from "@web-std/file";
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({

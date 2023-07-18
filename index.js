@@ -1,4 +1,29 @@
+/**
+ * The main Claude API client class.
+ * @class
+ * @classdesc Creates an instance of the Claude API client.
+ */
 export class Claude {
+    /**
+     * A UUID string
+     * @typedef UUID
+     * @example "222aa20a-bc79-48d2-8f6d-c819a1b5eaed"
+     */
+    /**
+     * Create a new Claude API client instance.
+     * @param {Object} options - Options
+     * @param {string} options.sessionKey - Claude session key 
+     * @param {string|function} [options.proxy] - Proxy URL or proxy function
+     * @param {function} [options.fetch] - Fetch function
+     * @example
+     * const claude = new Claude({
+     *   sessionKey: 'sk-ant-sid01-*****',
+     *   fetch: globalThis.fetch
+     * })
+     * 
+     * await claude.init();
+     * claude.sendMessage('Hello world').then(console.log)
+     */
     constructor({ sessionKey, proxy, fetch }) {
         this.ready = false;
         if (typeof proxy === 'string') {
@@ -23,9 +48,18 @@ export class Claude {
         if (fetch) { this.fetch = fetch }
         this.sessionKey = sessionKey;
     }
+    /**
+     * Get available Claude models.
+     * @returns {string[]} Array of model names
+     */
     models() {
         return ['claude-2', 'claude-1.3', 'claude-instant', 'claude-instant-100k']
     }
+    /**
+     * Get total token count for a Claude model.
+     * @param {string} [model] - Claude model name
+     * @returns {number} Total token count
+     */
     totalTokens(model) {
         // TODO: Figure out if this is correct, the blog article said "We’ve expanded Claude’s context window from 9K to 100K tokens"
         const TOKENS = {
@@ -36,9 +70,32 @@ export class Claude {
         }
         return TOKENS[model || this.defaultModel()];
     }
+    /**
+     * Get the default Claude model.
+     * @returns {string} Default model name
+     */
     defaultModel() {
         return this.models()[0];
     }
+    /**
+     * A partial or total completion for a message.
+     * @typedef MessageStreamChunk
+     * @property {String} completion The markdown text completion for this response
+     * @property {String | null} stop_reason The reason for the response stop (if any)
+     * @property {String} model The model used
+     * @property {String} stop The string at which Claude stopped responding at, e.g. "\n\nHuman:"
+     * @property {String} log_id A logging ID
+     * @property {Object} messageLimit If you're within the message limit
+     * @param {String} messageLimit.type The type of message limit ("within_limit")
+     */
+    /**
+     * Send a message to a new or existing conversation.
+     * @param {string} message - Initial message
+     * @param {SendMessageParams} [params] - Additional parameters
+     * @param {string} [params.conversation] - Existing conversation ID
+     * @param {boolean} [params.temporary=true] - Delete after getting response
+     * @returns {Promise<MessageStreamChunk>} Result message
+     */
     async sendMessage(message, { conversation = null, temporary = true, ...params }) {
         if (!conversation) {
             let out;
@@ -59,6 +116,14 @@ export class Claude {
             })
         }
     }
+    /**
+     * Make an API request.
+     * @param {string} endpoint - API endpoint
+     * @param {Object} options - Request options
+     * @returns {Promise<Response>} Fetch response
+     * @example
+     * await claude.request('/api/organizations').then(r => r.json())
+     */
     request(endpoint, options) {
         // Can't figure out a way to test this so I'm just assuming it works
         if (!(this.fetch || globalThis.fetch)) {
@@ -74,6 +139,11 @@ export class Claude {
         const proxied = this.proxy({ endpoint, options });
         return (this.fetch || globalThis.fetch)(proxied.endpoint, proxied.options);
     }
+    /**
+     * Initialize the client.
+     * @async
+     * @returns {Promise<void>} Void
+     */
     async init() {
         const organizations = await this.getOrganizations();
         if (organizations.error) {
@@ -83,7 +153,27 @@ export class Claude {
         this.recent_conversations = await this.getConversations();
         this.ready = true;
     }
-
+    /**
+     * An organization
+     * @typedef Organization
+     * @property {String} join_token A token
+     * @property {String} name The organization name
+     * @property {String} uuid The organization UUID
+     * @property {String} created_at The organization creation date
+     * @property {String} updated_at The organization update date
+     * @property {String[]} capabilities What the organization can do
+     * @property {Object} settings The organization's settings
+     * @property {Array} active_flags Organization's flags (none that I've found)
+     */
+    /**
+     * Get the organizations list.
+     * @async
+     * @returns {Promise<Organization[]>} A list of organizations
+     * @example
+     * await claude.getOrganizations().then(organizations => {
+     *  console.log('Users organization name is:', organizations[0].name)
+     * })
+     */
     async getOrganizations() {
         const response = await this.request("/api/organizations", {
             headers: {
@@ -93,10 +183,44 @@ export class Claude {
         });
         return await response.json().catch(errorHandle("getOrganizations"));
     }
+    /**
+     * Delete all conversations
+     * @async
+     * @returns {Promise<Response[]>} An array of responses for the DELETE requests
+     * @example
+     * await claude.clearConversations();
+     * console.assert(await claude.getConversations().length === 0);
+     */
     async clearConversations() {
         const convos = await this.getConversations();
         return Promise.all(convos.map(i => i.delete()))
     }
+    /**
+     * @callback doneCallback
+     * @param {MessageStreamChunk} a The completed response
+     */
+    /**
+     * @callback progressCallback
+     * @param {MessageStreamChunk} a The response in progress
+     */
+    /**
+     * @typedef SendMessageParams
+     * @property {Boolean} [retry=false] Whether to retry the most recent message in the conversation instead of sending a new one
+     * @property {String} [timezone="America/New_York"] The timezone
+     * @property {Attachment[]} [attachments=[]] Attachments
+     * @property {doneCallback} [done] Callback when done receiving the message response
+     * @property {progressCallback} [progress] Callback on message response progress
+     */
+    /**
+     * Start a new conversation
+     * @param {String} message The message to send to start the conversation
+     * @param {SendMessageParams} [params={}] Message params passed to Conversation.sendMessage
+     * @returns {Promise<Conversation>}
+     * @async
+     * @example
+     * const conversation = await claude.startConversation("Hello! How are you?")
+     * console.log(await conversation.getInfo());
+     */
     async startConversation(message, params = {}) {
         if (!this.ready) {
             await this.init();
@@ -129,12 +253,27 @@ export class Claude {
         }).then(r => r.json()).catch(errorHandle("startConversation generate_chat_title"));
         return convo;
     }
+    /**
+     * Get a conversation by its ID
+     * @param {UUID} id The uuid of the conversation (Conversation.uuid or Conversation.conversationId)
+     * @async
+     * @returns {Conversation | null} The conversation
+     * @example
+     * const conversation = await claude.getConversation("222aa20a-bc79-48d2-8f6d-c819a1b5eaed");
+     */
     async getConversation(id) {
         if (id instanceof Conversation || id.conversationId) {
             return new Conversation(this, { conversationId: id.conversationId })
         }
         return new Conversation(this, { conversationId: id })
     }
+    /**
+     * Get all conversations
+     * @async
+     * @returns {Promise<Conversation[]>} A list of conversations
+     * @example
+     * console.log(`You have ${await claude.getConversations().length} conversations:`); 
+     */
     async getConversations() {
         const response = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
@@ -145,6 +284,28 @@ export class Claude {
         const json = await response.json();
         return json.map(convo => new Conversation(this, { conversationId: convo.uuid, ...convo }));
     }
+    /**
+     * The response from uploading a file (an attachment)
+     * @typedef Attachment
+     * @property {String} file_name The file name
+     * @property {String} file_type The file's mime type
+     * @property {Number} file_size The file size in bytes
+     * @property {String} extracted_content The contents of the file that were extracted
+     * @property {Number | null} [totalPages] The total pages of the document
+     */
+    /**
+     * Extract the contents of a file
+     * @param {File} file A JS File (like) object to upload.
+     * @async
+     * @returns {Promise<Attachment>}
+     * @example
+     * const file = await claude.uploadFile(
+     *     new File(["test"], "test.txt", { type: "text/plain" }
+     * );
+     * console.log(await claude.sendMessage("What's the contents of test.txt?", {
+     *  attachments: [file]
+     * }))
+     */
     async uploadFile(file) {
         const { content, isText } = await readAsText(file);
         if (isText) {
@@ -186,7 +347,31 @@ export class Claude {
     }
 }
 
+/**
+ * A Claude conversation instance.
+ * @class 
+ * @classdesc Represents an active Claude conversation.
+ */
 export class Conversation {
+    /**
+     * @typedef Conversation
+     * @property {String} conversationId The conversation ID
+     * @property {String} name The conversation name
+     * @property {String} summary The conversation summary (usually empty)
+     * @property {String} created_at The conversation created at
+     * @property {String} updated_at The conversation updated at
+     */
+    /**
+     * Create a Conversation instance.
+     * @param {Claude} claude - Claude client instance 
+     * @param {Object} options - Options
+     * @param {String} options.conversationId - Conversation ID
+     * @param {String} [options.name] - Conversation name
+     * @param {String} [options.summary] - Conversation summary
+     * @param {String} [options.created_at] - Conversation created at
+     * @param {String} [options.updated_at] - Conversation updated at
+     * @param {String} [options.model] - Claude model
+     */
     constructor(claude, { model, conversationId, name = "", summary = "", created_at, updated_at }) {
         this.claude = claude;
         this.conversationId = conversationId;
@@ -194,18 +379,19 @@ export class Conversation {
         if (!this.claude) {
             throw new Error('Claude not initialized');
         }
-        if (!this.claude.ready) {
-            console.warn('⚠️ Claude not initialized, try await claude.init() in your code');
-        }
         if (!this.claude.sessionKey) {
             throw new Error('Session key required');
         }
         if (!this.conversationId) {
-            throw new Error('Conversation ID required');
+            throw new Error('Conversation ID required, are you calling `await claude.init()`?');
         }
         this.model = model || this.claude.defaultModel();
         Object.assign(this, { name, summary, created_at: created_at || new Date().toISOString(), updated_at: updated_at || new Date().toISOString() })
     }
+    /**
+     * Convert the conversation to a JSON object
+     * @returns {Conversation} The serializable object
+     */
     toJSON() {
         return {
             conversationId: this.conversationId,
@@ -217,9 +403,21 @@ export class Conversation {
             model: this.model,
         }
     }
+    /**
+     * Retry the last message in the conversation
+     * @param {SendMessageParams} [params={}] 
+     * @returns {Promise<MessageStreamChunk>}
+     */
     async retry(params) {
         return this.sendMessage("", { ...params, retry: true });
     }
+    /**
+     * Send a message to this conversation
+     * @param {String} message 
+     * @async
+     * @param {SendMessageParams} params The parameters to send along with the message
+     * @returns {Promise<MessageStreamChunk>}
+     */
     async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model, done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
         const body = {
             organization_uuid: this.claude.organizationId,
@@ -262,6 +460,12 @@ export class Conversation {
         })
         return returnPromise;
     }
+    /**
+     * Rename the current conversation
+     * @async
+     * @param {String} title The new title
+     * @returns {Promise<Response>} A Response object
+     */
     async rename(title) {
         if (!title?.length) {
             throw new Error('Title required');
@@ -278,6 +482,11 @@ export class Conversation {
             })
         }).catch(errorHandle("Rename conversation " + this.conversationId));
     }
+    /**
+     * Delete the conversation
+     * @async
+     * @returns Promise<Response>
+     */
     async delete() {
         return await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
@@ -286,6 +495,25 @@ export class Conversation {
             method: 'DELETE'
         }).catch(errorHandle("Delete conversation " + this.conversationId));
     }
+    /**
+     * @typedef Message
+     * @property {UUID} uuid The message UUID
+     * @property {String} text The message text
+     * @property {String} created_at The message created at
+     * @property {String} updated_at The message updated at
+     * @property {String | null} edited_at When the message was last edited (no editing support via api/web client)
+     * @property {Any | null} chat_feedback Feedback
+     * @property {Attachment[]} attachments The attachments
+     */
+    /**
+     * @typedef ConversationInfo
+     * @extends Conversation
+     * @property {Message[]} chat_messages The messages in this conversation
+     */
+    /**
+     * Get information about this conversation
+     * @returns {Promise<ConversationInfo>}
+     */
     async getInfo() {
         const response = await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
@@ -295,12 +523,27 @@ export class Conversation {
         });
         return await response.json().then(this.#formatMessages('chat_messages')).catch(errorHandle("getInfo"));
     }
+    /**
+     * Get all the files from this conversation
+     * @async
+     * @returns {Promise<Attachment[]>}
+     */
     getFiles() {
         return this.getMessages().then(r => r.map(i => i.attachments)).then(r => r.flat()).catch(errorHandle('getFiles'));
     }
+    /**
+     * Get all messages in the conversation
+     * @async
+     * @returns {Promise<Message[]>}
+     */
     getMessages() {
         return this.getInfo().then((a) => a.chat_messages).catch(errorHandle("getMessages"));
     }
+    /**
+     * Internal method for converting a JSON response to contain Message objects
+     * @param {String} message_key The message key in the object
+     * @returns {Function}
+     */
     #formatMessages(message_key) {
         return (response) => {
             if (!response[message_key]) {
@@ -314,6 +557,13 @@ export class Conversation {
     }
 }
 
+/**
+ * Reads a stream and returns the decoded data as a string.
+ *
+ * @param {Response} response - The response object containing the stream.
+ * @param {function} progressCallback - A callback function to track the progress of reading the stream.
+ * @return {Promise<string>} - A promise that resolves with the decoded data as a string.
+ */
 async function readStream(response, progressCallback) {
     const reader = response.body.getReader();
     let received = 0;
@@ -341,6 +591,12 @@ async function readStream(response, progressCallback) {
     return new TextDecoder('utf-8').decode(body);
 }
 
+/**
+ * Reads the contents of a file as text.
+ *
+ * @param {File} file - The file object to read.
+ * @return {Object} - An object containing the content of the file and a flag indicating if it is a text file.
+ */
 async function readAsText(file) {
     const buf = await file.arrayBuffer();
     // const allow = ['text', 'javascript', 'json', 'html', 'sh', 'xml', 'latex', 'ecmascript']
@@ -351,6 +607,12 @@ async function readAsText(file) {
     }
 }
 
+/**
+ * A function that handles errors.
+ *
+ * @param {string} msg - The error message.
+ * @return {function} - A function that logs the error message and exits the process.
+ */
 function errorHandle(msg) {
     return (e) => {
         console.error(`Error at: ${msg}`)
@@ -359,6 +621,11 @@ function errorHandle(msg) {
     }
 }
 
+/**
+ * Generates a random UUID.
+ *
+ * @return {UUID} A randomly generated UUID.
+ */
 function uuid() {
     var h = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
     var k = ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', '-', 'x', 'x', 'x', 'x', '-', '4', 'x', 'x', 'x', '-', 'y', 'x', 'x', 'x', '-', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'];
@@ -370,8 +637,19 @@ function uuid() {
     return u
 }
 
-
+/**
+ * Message class
+ * @class
+ * @classdesc A class representing a message in a Conversation
+ */
 export class Message {
+    /**
+     * Create a Message instance.
+     * @param {Object} params - Params
+     * @param {Conversation} params.conversation - Conversation instance
+     * @param {Claude} params.claude - Claude instance
+     * @param {Message} message - Message data
+     */
     constructor({ conversation, claude }, { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments }) {
         if (!claude) {
             throw new Error('Claude not initialized');
@@ -384,21 +662,59 @@ export class Message {
         this.json = { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments };
         Object.assign(this, this.json);
     }
+    /**
+     * Convert this message to a JSON representation
+     * Necessary to prevent circular JSON errors
+     * @returns {Message}
+     */
     toJSON() {
         return this.json;
     }
+    /**
+     * Returns the value of the "created_at" property as a Date object.
+     *
+     * @return {Date} The value of the "created_at" property as a Date object.
+     */
     get createdAt() {
         return new Date(this.json.created_at);
     }
+    /**
+     * Returns the value of the "updated_at" property as a Date object.
+     *
+     * @return {Date} The value of the "updated_at" property as a Date object.
+     */
     get updatedAt() {
         return new Date(this.json.updated_at);
     }
+    /**
+     * Returns the value of the "edited_at" property as a Date object.
+     *
+     * @return {Date} The value of the "edited_at" property as a Date object.
+     */
     get editedAt() {
         return new Date(this.json.edited_at);
     }
+    /**
+     * Get if message is from the assistant.
+     * @type {boolean}
+     */
     get isBot() {
         return this.sender === "assistant";
     }
+    /**
+     * @typedef MessageFeedback
+     * @property {UUID} uuid - Message UUID
+     * @property {"flag/bug" | "flag/harmful" | "flag/other"} type - Feedback type
+     * @property {String | null} reason - Feedback reason (details box)
+     * @property {String} created_at - Feedback creation date
+     * @property {String} updated_at - Feedback update date
+     */
+    /**
+     * Send feedback on the message.
+     * @param {string} type - Feedback type
+     * @param {string} [reason] - Feedback reason
+     * @returns {Promise<MessageFeedback>} Response 
+     */
     async sendFeedback(type, reason = "") {
         const FEEDBACK_TYPES = ["flag/bug", "flag/harmful", "flag/other"];
         if (!FEEDBACK_TYPES.includes(type)) {
