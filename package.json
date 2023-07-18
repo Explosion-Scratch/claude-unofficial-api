@@ -1,11 +1,12 @@
 {
   "name": "claude-ai",
   "type": "module",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Unofficial library for interacting with Claude AI",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "publish": "git add . && git commit -m '📦 Release' && npm publish && cd cli && npm publish && git push"
   },
   "repository": {
     "type": "git",
