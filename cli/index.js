@@ -38,6 +38,7 @@ const cli = meow(`
     ${chalk.bold.white("--files")}            Comma-separated list of files to attach
     ${chalk.bold.white("--help")}             Show this message
     ${chalk.bold.white("--model")}            Claude model to use
+    ${chalk.bold.white("--sync")}             Output the conversation synchronously (don't render progress)
     ${chalk.bold.white("--markdown")}         Whether to render markdown in the terminal (defaults to true)
     ${chalk.bold.white("--key")}              Path to a text file containing the sessionKey cookie value from https://claude.ai
   
@@ -68,6 +69,10 @@ const cli = meow(`
             choices: ['claude-2', 'claude-instant-100k', 'claude-1', 'claude-1.3'],
             default: 'claude-2'
         },
+        sync: {
+            type: 'boolean',
+            default: false
+        },
         key: {
             type: 'string',
             default: '~/.claude_key'
@@ -86,14 +91,29 @@ async function main() {
     const { flags } = cli;
     await claude.init();
     MODEL = cli.flags.model;
-    if (cli.input.length) {
-        let message = cli.input.join(' ')
+    if (cli.input.length || !process.stdin.isTTY) {
+        let message;
+        if (!cli.input.length) {
+            message = await getStdin(1000);
+        } else {
+            message = cli.input.join(' ')
+        }
         const info = {
             convos: []
         }
+        let spinner;
+        if (!cli.flags.sync) {
+            spinner = ora('Generating...').start();
+        }
         let params = {
             model: MODEL,
+            progress(a) {
+                if (!cli.flags.sync && a.completion) {
+                    spinner.text = chalk.dim.gray('Generating...\n') + md(a.completion);
+                }
+            },
             done: (a) => {
+                if (spinner) { spinner.stop(); spinner.clear(); }
                 if (!a.completion) {
                     console.error(chalk.red.bold('Error: No response'));
                     process.exit(1);
@@ -392,4 +412,27 @@ function formatBytes(n) {
     const rank = (k > 0 ? 'KMGT'[k - 1] : '') + 'b';
     const count = Math.floor(n / Math.pow(1024, k));
     return count + rank;
+}
+
+async function getStdin(timeout = 500) {
+    return new Promise((resolve, reject) => {
+        let input = '';
+
+        process.stdin.on('data', (chunk) => {
+            input += chunk;
+        });
+
+        process.stdin.on('error', (err) => {
+            reject(err);
+        });
+
+        let timer = setTimeout(() => {
+            reject(new Error('Timeout exceeded waiting for stdin'));
+        }, timeout);
+
+        process.stdin.on('end', () => {
+            clearTimeout(timer);
+            resolve(input);
+        });
+    });
 }
