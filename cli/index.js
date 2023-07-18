@@ -12,6 +12,8 @@ import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
+import "isomorphic-fetch";
+import { File } from "web-file-polyfill";
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({
@@ -85,6 +87,7 @@ const WELCOME_MESSAGE = chalk.bold.green('Welcome to the Claude CLI!');
 let MODEL = 'claude-2'
 const claude = new Claude({
     sessionKey: getKey(),
+    fetch: globalThis.fetch
 });
 
 async function main() {
