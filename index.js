@@ -98,6 +98,9 @@ export class Claude {
         return Promise.all(convos.map(i => i.delete()))
     }
     async startConversation(message, params = {}) {
+        if (!this.ready) {
+            await this.init();
+        }
         const { uuid: convoID, name, summary, created_at, updated_at } = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
                 "content-type": "application/json",
@@ -190,6 +193,9 @@ export class Conversation {
         this.request = claude.request;
         if (!this.claude) {
             throw new Error('Claude not initialized');
+        }
+        if (!this.claude.ready) {
+            console.warn('⚠️ Claude not initialized, try await claude.init() in your code');
         }
         if (!this.claude.sessionKey) {
             throw new Error('Session key required');
