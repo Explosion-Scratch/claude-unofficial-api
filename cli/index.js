@@ -687,7 +687,7 @@ async function getPrompt(template, variables = {}) {
         }
         if (command === 'followup') {
             return {
-                followup: [arg]
+                followup: [{body: arg}]
             }
         }
         if (command === 'claude') {
@@ -705,13 +705,17 @@ async function runPrompt(prompt) {
     if (!prompt.body?.trim()?.length) { return; }
     if (!claude.ready) { await claude.init() }
     // Run the prompt
-    prompt.variables.claude_response = await new Promise(async r => {
+    prompt.variables.claude_response = await new Promise(async resolve => {
+        let r;
+        let p = new Promise(res => (r = res));
         convo = await claude.startConversation(prompt.body, status({
             attachments: prompt.attachments,
             done(a) {
                 r(a);
             }
         }))
+        const result = await p;
+        resolve(result);
     })
     prompt.conversation = convo;
     for (let i of prompt.followup) {
