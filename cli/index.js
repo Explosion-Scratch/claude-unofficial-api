@@ -450,6 +450,9 @@ async function getStdin(timeout = 500) {
 
 let SPINNER;
 function status(params, options) {
+    if (!SPINNER && !cli.flags.sync) {
+        SPINNER = ora('Generating...').start();
+    }
     return {
         ...params,
         progress(a) {
@@ -458,7 +461,7 @@ function status(params, options) {
                 result = params.progress(a)
             }
             if (result?.skip) { return };
-            if (SPINNER && a.completion) {
+            if (SPINNER && a.completion && !cli.flags.sync) {
                 SPINNER.text = chalk.gray.dim('Generating...\n\n' + md(a.completion));
             }
         },
@@ -496,7 +499,7 @@ async function template(message, params) {
         }
         const prompt = await getPrompt(templateText, { prompt: message });
         const result = await runPrompt(prompt);
-        let out = params;
+        let out = {...params};
         if (result.attachments) {
             out.attachments = out.attachments || [];
             out.attachments.push(...result.attachments);
@@ -509,7 +512,7 @@ async function template(message, params) {
 
 function callClaude(prompt) {
     return claude.sendMessage(prompt, status({
-        temporary: true,
+        temporary: false,
     }, { clear: true }))
 }
 
@@ -636,7 +639,8 @@ async function getPrompt(template, variables = {}) {
         }
         if (block.command === 'claude') {
             if (SPINNER) { SPINNER.stop(); SPINNER.clear(); }
-            console.log(chalk.gray.dim(("Claude response finished: " + (result || "").toString().slice(0, 100))));
+            console.log(result, result.body)
+            console.log(chalk.gray.dim(("Claude response finished: " + (result.body || "").toString().slice(0, 100))));
         }
         result = { body: '', variables: {}, ...result }
         promptText += result.body;
@@ -694,7 +698,7 @@ async function getPrompt(template, variables = {}) {
                     file_name: param || `file-${Math.random().toString(16).slice(2).slice(0, 6)}.txt`,
                     file_type: 'text/plain',
                     file_size: file.size,
-                    extracted: arg,
+                    extracted_content: arg,
                 }]
             }
         }
@@ -706,7 +710,10 @@ async function getPrompt(template, variables = {}) {
         if (command === 'claude') {
             const result = await callClaude(arg);
             return {
-                body: result,
+                body: result.completion,
+                variables: {
+                    claude_response: result,
+                }
             }
         }
         return { body: `${command}(${arg})` }
@@ -714,6 +721,7 @@ async function getPrompt(template, variables = {}) {
 }
 
 async function runPrompt(prompt) {
+    console.log(prompt);
     let convo;
     if (!prompt.body?.trim()?.length) { return; }
     if (!claude.ready) { await claude.init() }
@@ -726,10 +734,11 @@ async function runPrompt(prompt) {
             done(a) {
                 r(a);
             }
-        }, { clear: true }))
+        }, { clear: false }))
         const result = await p;
         resolve(result);
     })
+    prompt.variables.response = prompt.variables.claude_response.completion;
     prompt.conversation = convo;
     for (let i of prompt.followup) {
         const followup = await getPrompt(i.body, prompt.variables);
@@ -741,7 +750,7 @@ async function runPrompt(prompt) {
                 done(a) {
                     r(a);
                 }
-            }, { clear: prompt.followup.indexOf(i) === prompt.followup.length - 1 }))
+            }, { clear: prompt.followup.indexOf(i) !== prompt.followup.length - 1 }))
         })
     }
     return prompt;

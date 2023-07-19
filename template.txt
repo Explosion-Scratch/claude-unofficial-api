@@ -1,8 +1,6 @@
-Guess how many words will be in your response to this prompt {prompt}
+Write {prompt}
 {#followup}
-   Your last response had 
-   {#js}
-      variables.claude_response.completion.split(' ').length
-   {/js} 
-   words
+   {#writefile essay.md}
+      {response}
+   {/writefile}
 {/followup}
