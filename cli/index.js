@@ -44,6 +44,7 @@ const cli = meow(`
     ${chalk.bold.white("--markdown")}         Whether to render markdown in the terminal (defaults to true)
     ${chalk.bold.white("--key")}              Path to a text file containing the sessionKey cookie value from https://claude.ai
     ${chalk.bold.white("--template")}         A prompt template text file
+    ${chalk.bold.white("--clear")}            Clear all conversations (no confirmation)
   
   Examples
     $ claude --conversation-id fc6d1a1a-8722-476c-8db9-8a871c121ee9
@@ -98,6 +99,16 @@ async function main() {
     const { flags } = cli;
     await claude.init();
     MODEL = cli.flags.model;
+    if (cli.flags.clear) {
+        try {
+            await claude.clearConversations();
+        } catch (e) {
+            console.error(chalk.bold.red('Error clearing conversations!'));
+            process.exit(1);
+        }
+        console.log(chalk.green.bold('Cleared conversations'))
+        process.exit(0);
+    }
     if (cli.input.length || !process.stdin.isTTY) {
         let message;
         if (!cli.input.length) {
@@ -132,7 +143,7 @@ async function main() {
 
         params = await template(message, status(params))
         if (cli.flags.template) { process.exit(0) }
-        
+
         if (flags.conversationId) {
             info.convos = await claude.getConversations();
             info.conversation = info.convos.find(c => c.id === flags.conversationId || c.name === flags.conversationId);
@@ -438,7 +449,7 @@ async function getStdin(timeout = 500) {
 }
 
 let SPINNER;
-function status(params) {
+function status(params, options) {
     return {
         ...params,
         progress(a) {
@@ -460,7 +471,9 @@ function status(params) {
                 console.error(chalk.red.bold('Error: No response'));
                 process.exit(1);
             }
-            console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
+            if (a.completion && !options?.clear) {
+                console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
+            }
             if (params.done) {
                 params.done(a);
             }
@@ -497,7 +510,7 @@ async function template(message, params) {
 function callClaude(prompt) {
     return claude.sendMessage(prompt, status({
         temporary: true,
-    }))
+    }, { clear: true }))
 }
 
 /*
@@ -656,7 +669,7 @@ async function getPrompt(template, variables = {}) {
                 value: arg, body: '',
             }
         }
-        if (command === 'js') {
+        if (command === 'js' || ['jsdisplay', 'jsd'].includes(command)) {
             let pr;
             const BLACKLIST = ['void', 'var', 'let', 'const', 'private', 'public', 'window', 'body', 'document', 'globalThis', 'globals', 'import', 'class', 'async', 'function', 'this', 'return', 'yield', 'throw', 'catch', 'break', 'case', 'continue', 'default', 'do', 'else', 'finally', 'if', 'in', 'return', 'switch', 'throw', 'try', 'while', 'with', 'yield'];
             let p = new Promise(resolve => (pr = resolve));
@@ -667,7 +680,7 @@ async function getPrompt(template, variables = {}) {
         })`);
             eval(EVAL_STR);
             return await p.then((result) => {
-                let out = { body: '', value: result, variables: {} };
+                let out = { body: ['jsdisplay', 'jsd'].includes(command) ? result : '', value: result, variables: { js_response: result } };
                 if (param) {
                     out.variables[param] = result;
                 }
@@ -687,7 +700,7 @@ async function getPrompt(template, variables = {}) {
         }
         if (command === 'followup') {
             return {
-                followup: [{body: arg}]
+                followup: [{ body: arg }]
             }
         }
         if (command === 'claude') {
@@ -713,7 +726,7 @@ async function runPrompt(prompt) {
             done(a) {
                 r(a);
             }
-        }))
+        }, { clear: true }))
         const result = await p;
         resolve(result);
     })
@@ -728,7 +741,7 @@ async function runPrompt(prompt) {
                 done(a) {
                     r(a);
                 }
-            }))
+            }, { clear: prompt.followup.indexOf(i) === prompt.followup.length - 1 }))
         })
     }
     return prompt;

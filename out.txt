@@ -1,0 +1,18 @@
+{
+  "variables": {
+    "prompt": "a\n",
+    "response": "",
+    "result": "",
+    "claude_response": {
+      "completion": " I'm afraid I don't actually count the number of words in my responses. As an AI assistant created by Anthropic to be helpful, harmless, and honest, I don't have an internal mechanism for guessing or predicting the length of my own responses. The length and content of my responses are determined dynamically based on the conversation and my training objective of having a friendly, natural dialogue. Perhaps we could have an interesting conversation about something else instead!",
+      "stop_reason": "stop_sequence",
+      "model": "claude-2.0",
+      "stop": "\n\nHuman:",
+      "log_id": "bcef12115bb97765f6010574a2deb7a3a31089235915450fb6930a98fee33458",
+      "messageLimit": {
+        "type": "within_limit"
+      }
+    }
+  },
+  "count": 78
+}

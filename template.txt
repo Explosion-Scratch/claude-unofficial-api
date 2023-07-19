@@ -2,8 +2,7 @@ Guess how many words will be in your response to this prompt {prompt}
 {#followup}
    Your last response had 
    {#js}
-     wr
-    variables.response.split(' ').length
+      variables.claude_response.completion.split(' ').length
    {/js} 
    words
 {/followup}
