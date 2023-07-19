@@ -7,7 +7,7 @@ import ora from 'ora';
 import * as marked from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import meow from 'meow';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
@@ -43,6 +43,7 @@ const cli = meow(`
     ${chalk.bold.white("--sync")}             Output the conversation synchronously (don't render progress)
     ${chalk.bold.white("--markdown")}         Whether to render markdown in the terminal (defaults to true)
     ${chalk.bold.white("--key")}              Path to a text file containing the sessionKey cookie value from https://claude.ai
+    ${chalk.bold.white("--template")}         A prompt template text file
   
   Examples
     $ claude --conversation-id fc6d1a1a-8722-476c-8db9-8a871c121ee9
@@ -78,6 +79,9 @@ const cli = meow(`
         key: {
             type: 'string',
             default: '~/.claude_key'
+        },
+        template: {
+            type: 'string',
         }
     }
 });
@@ -101,32 +105,21 @@ async function main() {
         } else {
             message = cli.input.join(' ')
         }
+        if (!message?.trim()?.length) {
+            console.error(chalk.red.bold('No message provided!'));
+            process.exit(0);
+        }
         const info = {
             convos: []
         }
-        let spinner;
-        if (!cli.flags.sync) {
-            spinner = ora('Generating...').start();
-        }
         let params = {
             model: MODEL,
-            progress(a) {
-                if (!cli.flags.sync && a.completion) {
-                    spinner.text = chalk.dim.gray('Generating...\n') + md(a.completion);
-                }
-            },
             done: (a) => {
-                if (spinner) { spinner.stop(); spinner.clear(); }
-                if (!a.completion) {
-                    console.error(chalk.red.bold('Error: No response'));
-                    process.exit(1);
-                }
-                console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
                 process.exit(0);
             },
             attachments: [],
-        }
-
+        };
+        SPINNER = ora("Generating...").start();
         if (flags.files) {
             for (let fileName of flags.files.trim().split(',').map(i => i.trim())) {
                 const fileContent = await uploadFile(claude, fileName);
@@ -136,6 +129,10 @@ async function main() {
         const r = await getFiles(message, claude);
         params.attachments.push(...r.attachments);
         message = r.question;
+
+        params = await template(message, status(params))
+        if (cli.flags.template) { process.exit(0) }
+        
         if (flags.conversationId) {
             info.convos = await claude.getConversations();
             info.conversation = info.convos.find(c => c.id === flags.conversationId || c.name === flags.conversationId);
@@ -144,19 +141,15 @@ async function main() {
                 console.log(chalk.dim.gray(info.convos.map(i => `${i.name} (${i.id})`).join('\n')));
                 process.exit(1);
             }
-            info.conversation.sendMessage(message, {
-                ...params
-            })
+            info.conversation.sendMessage(...params)
         } else {
-            await claude.startConversation(message, {
-                ...params
-            })
+            await claude.startConversation(...params)
         }
     } else {
         console.log(WELCOME_MESSAGE);
-        let spinner = ora('Loading conversations...').start();
+        SPINNER = ora('Loading conversations...').start();
         const conversations = await claude.getConversations().then(c => c.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-        spinner.stop();
+        SPINNER.stop();
 
         const conversationOptions = [
             { name: 'Start new conversation', value: 'start_new' },
@@ -233,11 +226,11 @@ async function main() {
                 loop: false,
             })
             if (!answer) { console.error(chalk.bold.red('Aborting')); process.exit(0); }
-            spinner.text = 'Clearing conversations...';
-            spinner.start();
+            SPINNER.text = 'Clearing conversations...';
+            SPINNER.start();
             await claude.clearConversations();
-            spinner.text = 'Done';
-            spinner.stop();
+            SPINNER.text = 'Done';
+            SPINNER.stop();
             console.log(chalk.bold.green('Done!'));
             process.exit(0);
         }
@@ -314,39 +307,43 @@ async function main() {
                 params.retry = true
                 question = "";
             }
-            const spinner = ora(params.retry ? 'Retrying message' : 'Thinking...').start();
+            SPINNER = ora(params.retry ? 'Retrying message' : 'Thinking...').start();
             let text = chalk.dim.gray(`Waiting for Claude (${MODEL})...`);
             const cb = (msg) => {
                 if (!msg.completion) { return }
                 text = msg.completion;
-                spinner.text = chalk.gray.dim(params.retry ? 'Re-generating...' : 'Generating...') + '\n' + md(msg.completion);
-                spinner.render();
+                SPINNER.text = chalk.gray.dim(params.retry ? 'Re-generating...' : 'Generating...') + '\n' + md(msg.completion);
+                SPINNER.render();
+                return { skip: true }
             }
             const r = await getFiles(question, claude);
             question = r.question;
             params.attachments = r.attachments;
 
             if (!selectedConversation) {
-                selectedConversation = await claude.startConversation(question, {
+                const res = await template(question, status({
                     progress: cb,
                     MODEL,
                     ...params,
-                });
+                }));
+                if (!cli.flags.template) {
+                    selectedConversation = await claude.startConversation(...res);
+                } else {
+                    selectedConversation = res[2];
+                }
             } else {
-                await selectedConversation.sendMessage(question, {
+                await selectedConversation.sendMessage(question, status({
                     progress: cb,
                     MODEL,
                     ...params,
-                })
+                }))
             }
-            spinner.stop();
-            spinner.clear();
-            console.log(chalk.gray.dim(`${new Date().toLocaleTimeString()} - (${MODEL})`) + '\n\n' + md(text) + '\n')
+            SPINNER.stop();
+            SPINNER.clear();
         }
     }
 }
 
-main();
 function md(text) {
     return marked.parse(text?.trim() || '')?.trim();
 }
@@ -439,3 +436,329 @@ async function getStdin(timeout = 500) {
         });
     });
 }
+
+let SPINNER;
+function status(params) {
+    return {
+        ...params,
+        progress(a) {
+            let result;
+            if (params.progress && !cli.flags.sync) {
+                result = params.progress(a)
+            }
+            if (result?.skip) { return };
+            if (SPINNER && a.completion) {
+                SPINNER.text = chalk.gray.dim('Generating...\n\n' + md(a.completion));
+            }
+        },
+        done(a) {
+            if (SPINNER) {
+                SPINNER.stop();
+                SPINNER.clear();
+            }
+            if (!a.completion) {
+                console.error(chalk.red.bold('Error: No response'));
+                process.exit(1);
+            }
+            console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
+            if (params.done) {
+                params.done(a);
+            }
+        }
+    }
+}
+
+async function template(message, params) {
+    if (cli.flags.template) {
+        let templateText;
+        try {
+            templateText = readFileSync(cli.flags.template, 'utf-8');
+        } catch (e) {
+            console.error(chalk.red.bold('No template found'));
+            process.exit(0);
+        }
+        if (!templateText) {
+            console.error(chalk.red.bold('No template found'))
+            process.exit(0);
+        }
+        const prompt = await getPrompt(templateText, { prompt: message });
+        const result = await runPrompt(prompt);
+        let out = params;
+        if (result.attachments) {
+            out.attachments = out.attachments || [];
+            out.attachments.push(...result.attachments);
+        }
+        return [result.body, out, result.conversation];
+    } else {
+        return [message, params, null];
+    }
+}
+
+function callClaude(prompt) {
+    return claude.sendMessage(prompt, status({
+        temporary: true,
+    }))
+}
+
+/*
+Based on summary.txt and idea.txt, write a brief new chapter in the style of {prompt} based on the ideas in idea.txt and the book's summary in summary.txt.
+
+{#file summary.txt}
+    Summary of {prompt}
+    {#claude}
+        Summarize the book {prompt} chapter by chapter.
+        For each chapter detail the themes, main ideas, and key plot points.
+    {/claude}
+{/file}
+{#file idea.txt}
+    {#claude}
+        What're 5 good and creative ideas for continuations of the book {prompt}?
+    {/claude}
+{/file}
+{#followup}
+    test
+{/followup}
+*/
+
+
+/**
+ * Finds and replaces all occurrences of a regular expression in a given string
+ * using a callback function.
+ *
+ * @param {RegExp} regex - The regular expression to search for.
+ * @param {string} string - The string to search within.
+ * @param {Function} callback - The callback function that will be called for each match.
+ * @return {Array} An array containing the replaced string segments.
+ */
+async function findReplace(regex, string, callback) {
+    let out = [];
+    if (typeof string === 'string') {
+        string = [string];
+    }
+    for (let str of string) {
+        if (typeof str !== 'string') { out.push(str); continue; }
+        let match;
+        let prevIndex = 0;
+        while ((match = regex.exec(str)) !== null) {
+            out.push(str.slice(prevIndex, match.index));
+            out.push(await callback(match, str));
+            prevIndex = match.index + match[0].length;
+        }
+        out.push(str.slice(prevIndex, str.length));
+    }
+    return out;
+}
+
+async function getPrompt(template, variables = {}) {
+    const RE = {
+        block: /{#(?<command>[a-z]+)(?: (?:(?<var>\w+)=)?(?<param>.+?))?}\s*(?<body>[\s\S]+?)\s*{\/(?<endcmd>\1)}/g,
+        inline_command: /{#(?<command>[a-z]+)(?:\s+(?:(?<var>\w+)=)?(?<input>".+"))?\/?}/g,
+        var_read: /{(?<name>\w+)}/g,
+        var_write: /{(?<var>\w+)=(?<value>[^}]+)}/g,
+    }
+    let out = template;
+    out = await findReplace(RE.block, out, async (a) => {
+        if (a.groups.command !== a.groups.endcmd) {
+            throw new Error('Unexpected command end: ' + a.groups.command + '!=' + a.groups.endcmd);
+        }
+        return {
+            type: 'block',
+            command: a.groups.command,
+            param: a.groups.param,
+            var: a.groups.var,
+            body: a.groups.body,
+        }
+    })
+    out = await findReplace(RE.inline_command, out, async (a) => {
+        return {
+            type: 'command',
+            command: a.groups.command,
+            value: a.groups.input,
+            var: a.groups.var,
+        }
+    })
+    out = await findReplace(RE.var_write, out, async (a) => {
+        return {
+            type: 'variable_set',
+            name: a.groups.var,
+            value: a.groups.value,
+        }
+    })
+    out = await findReplace(RE.var_read, out, async (a) => {
+        return {
+            type: 'variable',
+            name: a.groups.name,
+        }
+    })
+    let promptText = '';
+    let attachments = [];
+    let followup = [];
+    for (const block of out) {
+        if (typeof block === 'string') {
+            if (!block.trim().length) { promptText += '\n'; continue }
+            promptText += block;
+        }
+        if (block.type === 'variable') {
+            promptText += variables[block.name];
+        }
+        if (block.type === 'variable_set') {
+            variables[block.name] = block.value;
+        }
+        let result = {};
+        if (block.type === 'command') {
+            // TODO: interpret inline commands
+            result = await runCommand(block.command, variables, simpleVarReplace(block.value));
+            if (block.var) { result.body = ''; }
+        }
+        if (block.type === 'block') {
+            if (block.command === 'followup') {
+                result = await runCommand(block.command, variables, block.body, block.param);
+            } else {
+                const ran = await getPrompt(block.body, variables);
+                Object.assign(variables, ran.variables);
+                attachments.push(...ran.attachments);
+                followup.push(...ran.followup);
+                result = await runCommand(block.command, variables, ran.body, block.param);
+            }
+        }
+        if (block.command === 'claude') {
+            if (SPINNER) { SPINNER.stop(); SPINNER.clear(); }
+            console.log(chalk.gray.dim(("Claude response finished: " + (result || "").toString().slice(0, 100))));
+        }
+        result = { body: '', variables: {}, ...result }
+        promptText += result.body;
+        variables.response = result.value || result.body;
+        variables.result = result.value || result.body;
+        Object.assign(variables, result.variables);
+        if (block.var) {
+            variables[block.var] = variables.response;
+        }
+        if (result.attachments) {
+            attachments.push(...result.attachments);
+        }
+        if (result.followup) {
+            followup.push(...result.followup);
+        }
+    }
+    promptText = promptText.replace(/\n+/g, '\n').replace(/ +/g, ' ');
+    return { body: promptText, attachments, followup, variables };
+
+    function simpleVarReplace(string) {
+        return string.replace(RE.var_read, (_, varname) => {
+            return variables[varname] || '';
+        })
+    }
+
+    async function runCommand(command, variables = {}, arg, param) {
+        if (command === "writefile") {
+            writeFileSync(param, arg);
+            return {
+                value: arg, body: '',
+            }
+        }
+        if (command === 'js') {
+            let pr;
+            const BLACKLIST = ['void', 'var', 'let', 'const', 'private', 'public', 'window', 'body', 'document', 'globalThis', 'globals', 'import', 'class', 'async', 'function', 'this', 'return', 'yield', 'throw', 'catch', 'break', 'case', 'continue', 'default', 'do', 'else', 'finally', 'if', 'in', 'return', 'switch', 'throw', 'try', 'while', 'with', 'yield'];
+            let p = new Promise(resolve => (pr = resolve));
+            const EVAL_STR = (`((async ({${Object.keys(variables).filter(i => !BLACKLIST.includes(i)).join(', ')}}) => {
+            ${arg.split('\n').length === 1 ? `return ${arg}` : arg}
+        })(${JSON.stringify(variables)})).then(result => {
+            pr(result);
+        })`);
+            eval(EVAL_STR);
+            return await p.then((result) => {
+                let out = { body: '', value: result, variables: {} };
+                if (param) {
+                    out.variables[param] = result;
+                }
+                return out;
+            })
+        }
+        if (command === 'file') {
+            const file = new Blob([arg], { type: 'text/plain' });
+            return {
+                value: arg, body: '', attachments: [{
+                    file_name: param || `file-${Math.random().toString(16).slice(2).slice(0, 6)}.txt`,
+                    file_type: 'text/plain',
+                    file_size: file.size,
+                    extracted: arg,
+                }]
+            }
+        }
+        if (command === 'followup') {
+            return {
+                followup: [arg]
+            }
+        }
+        if (command === 'claude') {
+            const result = await callClaude(arg);
+            return {
+                body: result,
+            }
+        }
+        return { body: `${command}(${arg})` }
+    }
+}
+
+async function runPrompt(prompt) {
+    let convo;
+    if (!prompt.body?.trim()?.length) { return; }
+    if (!claude.ready) { await claude.init() }
+    // Run the prompt
+    prompt.variables.claude_response = await new Promise(async r => {
+        convo = await claude.startConversation(prompt.body, status({
+            attachments: prompt.attachments,
+            done(a) {
+                r(a);
+            }
+        }))
+    })
+    prompt.conversation = convo;
+    for (let i of prompt.followup) {
+        const followup = await getPrompt(i.body, prompt.variables);
+        prompt.followup.push(...followup.followup);
+        if (!followup.body?.trim()?.length) { continue };
+        prompt.variables.claude_response = await new Promise(r => {
+            convo.sendMessage(followup.body, status({
+                attachments: followup.attachments,
+                done(a) {
+                    r(a);
+                }
+            }))
+        })
+    }
+    return prompt;
+}
+
+// getPrompt(TEMPLATE, { prompt: 'javascript command line hangman game using inquirer from npm' }).then(r => {
+//     writeFileSync('prompt.json', JSON.stringify(r));
+//     runPrompt(r).then(a => { 
+//         console.log(a);
+//         writeFileSync('prompt.json', JSON.stringify(a, null, 2));
+//     });
+// });
+
+// Replace without removing the delimiters
+// https://stackoverflow.com/a/17414844
+function split(text, regex) {
+    var token, index, result = [];
+    while (text !== '') {
+        regex.lastIndex = 0;
+        token = regex.exec(text);
+        if (token === null) {
+            break;
+        }
+        index = token.index;
+        if (token[0].length === 0) {
+            index = 1;
+        }
+        result.push(text.substr(0, index));
+        result.push(token[0]);
+        index = index + token[0].length;
+        text = text.slice(index);
+    }
+    result.push(text);
+    return result;
+}
+
+main();
