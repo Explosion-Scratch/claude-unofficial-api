@@ -1,2 +1,5 @@
-Write a harvard quality essay based on the following prompt: {prompt}
-{#import "writefiles.txt"}
+Tell me a joke
+{#followup}
+    Now put it in "joke.txt"
+    {#import "writefiles.txt"}
+{/followup}

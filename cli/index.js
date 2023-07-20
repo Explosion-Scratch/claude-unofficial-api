@@ -798,6 +798,7 @@ async function runPrompt(prompt) {
     for (let i of prompt.followup) {
         const followup = await getPrompt(i.body, prompt.variables);
         prompt.followup.push(...followup.followup);
+        prompt.every.push(...followup.every);
         if (!followup.body?.trim()?.length) { continue };
         prompt.variables.claude_response = await new Promise(r => {
             convo.sendMessage(followup.body, status({
