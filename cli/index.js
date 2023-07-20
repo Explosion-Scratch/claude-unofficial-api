@@ -536,27 +536,6 @@ function callClaude(prompt) {
     }, { clear: true }))
 }
 
-/*
-Based on summary.txt and idea.txt, write a brief new chapter in the style of {prompt} based on the ideas in idea.txt and the book's summary in summary.txt.
-
-{#file summary.txt}
-    Summary of {prompt}
-    {#claude}
-        Summarize the book {prompt} chapter by chapter.
-        For each chapter detail the themes, main ideas, and key plot points.
-    {/claude}
-{/file}
-{#file idea.txt}
-    {#claude}
-        What're 5 good and creative ideas for continuations of the book {prompt}?
-    {/claude}
-{/file}
-{#followup}
-    test
-{/followup}
-*/
-
-
 /**
  * Finds and replaces all occurrences of a regular expression in a given string
  * using a callback function.
@@ -828,48 +807,7 @@ async function runPrompt(prompt) {
     }
 }
 
-// getPrompt(TEMPLATE, { prompt: 'javascript command line hangman game using inquirer from npm' }).then(r => {
-//     writeFileSync('prompt.json', JSON.stringify(r));
-//     runPrompt(r).then(a => { 
-//         console.log(a);
-//         writeFileSync('prompt.json', JSON.stringify(a, null, 2));
-//     });
-// });
-
-// Replace without removing the delimiters
-// https://stackoverflow.com/a/17414844
-function split(text, regex) {
-    var token, index, result = [];
-    while (text !== '') {
-        regex.lastIndex = 0;
-        token = regex.exec(text);
-        if (token === null) {
-            break;
-        }
-        index = token.index;
-        if (token[0].length === 0) {
-            index = 1;
-        }
-        result.push(text.substr(0, index));
-        result.push(token[0]);
-        index = index + token[0].length;
-        text = text.slice(index);
-    }
-    result.push(text);
-    return result;
-}
-
 main();
-// // const CODE = "{#js}\r\n        const regex = \/\\n?(?<filename>(?:\\w+|\\.\\w+)+)\\n?```\\n?(?<body>\\w+)?(.+)\\n?```\/g;\r\n        let match;\r\n        while (match = regex.exec(claude_response.completion)) {\r\n            writeFileSync(\"claude-\" + match.groups.filename, match.groups.body);\r\n        }\r\n    {\/js}";
-
-// runPrompt({
-//     body: " hello_world.js\n```js\nconsole.log('Hello World!');\n```",
-//     dontRespond: true,
-//     every: [{
-//         body: "{#js}\r\n        const regex = \/(?<file>(\\w+\\.)+\\w+)\\n?```(\\w+\\n)?\\n?(?<body>[\\s\\S]+?)\\n?```\/g\r\n        let match;\r\n        while (match = regex.exec(variables.claude_response.completion)) {\r\n            writeFileSync(\"claude-\" + match.groups.filename, match.groups.body);\r\n        }\r\n    {\/js}",
-//     }]
-// })
-
 
 function EXIT(status) {
     process.exit(status);
