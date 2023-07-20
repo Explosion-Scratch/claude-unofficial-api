@@ -3,7 +3,9 @@
 https://github.com/Explosion-Scratch/claude-unofficial-api/assets/61319150/6c3f706d-bddf-42e6-9745-aa1f7561ca40
 
 This is a lightweight (isomorphic, 0 dependency) JavaScript library for interacting with the [Claude AI](https://www.claude.ai/) chatbot's unofficial internal API. [CLI installation](#cli-installation), [API installation + usage](#usage)
-  
+
+> _Psst. It can also [code full projects](https://github.com/Explosion-Scratch/claude-unofficial-api/blob/main/examples/coding.md) and [output valid JSON](https://github.com/Explosion-Scratch/claude-unofficial-api/blob/main/examples/json.md)_
+
 ## Features
 - 💬 Start new conversations
 - 📎 Upload files
