@@ -1,0 +1,2 @@
+Write a harvard quality essay based on the following prompt: {prompt}
+{#import "writefiles.txt"}

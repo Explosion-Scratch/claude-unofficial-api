@@ -636,6 +636,7 @@ async function getPrompt(template, variables = {}) {
         if (typeof block === 'string') {
             if (!block.trim().length) { promptText += '\n'; continue }
             promptText += block;
+            continue;
         }
         if (block.type === 'variable') {
             promptText += variables[block.name];
@@ -653,11 +654,8 @@ async function getPrompt(template, variables = {}) {
                 console.log(variables.templatePath);
                 block.body = join(variables.templatePath.split(sep).slice(0, -1).join(sep), block.value);
                 block.body = readFileSync(block.body, 'utf-8');
-                const ran = await getPrompt(block.body, variables);
-                Object.assign(variables, ran.variables);
-                attachments.push(...ran.attachments);
-                followup.push(...ran.followup);
-                result = ran.body;
+                let ran = await getPrompt(block.body, variables);
+                result = ran;
             } else {
                 result = await runCommand(block.command, variables, simpleVarReplace(block.value));
                 if (block.var) { result.body = ''; }
