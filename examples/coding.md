@@ -81,7 +81,8 @@ This is the content of hello_world.txt
 
 </details> 
 
-# Output:
+# Output (code was _very_ lightly edited ~2 lines changed):
+Pause the recording to view total code
 
 <details>
 <summary>node <code>index.js</code> output:</summary>
