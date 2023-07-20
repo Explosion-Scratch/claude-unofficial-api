@@ -20,6 +20,7 @@ This is the content of hello_world.txt
         let match;
         while (match = regex.exec(variables.claude_response.completion)) {
             writeFileSync(match.groups.file, match.groups.body);
+            console.log(chalk.bold.green(`Wrote ${match.groups.body.split('\n').length} lines to ${chalk.bold.red(match.groups.file)}`))
         }
     {/js}
 {/every}

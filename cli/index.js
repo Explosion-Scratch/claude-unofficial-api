@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync } from 'f
 import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
-import { dirname, join } from 'path';
+import { dirname, join, sep } from 'path';
 import "isomorphic-fetch";
 import { File } from "@web-std/file";
 
@@ -333,10 +333,22 @@ async function main() {
                     selectedConversation = res[2];
                 }
             } else {
-                await selectedConversation.sendMessage(question, status({
-                    MODEL,
-                    ...params,
-                }))
+                if (!res) {
+                    res = await template(question, status({
+                        MODEL,
+                        ...params,
+                    }))
+                } else {
+                    res = [
+                        question,
+                        status({
+                            MODEL,
+                            ...params,
+                        }),
+                        ...res.slice(2)
+                    ]
+                }
+                await selectedConversation.sendMessage(...res)
                 // runEveries
                 if (res[3]?.length) {
                     res[3]();
@@ -443,7 +455,11 @@ async function getStdin(timeout = 500) {
 
 let SPINNER;
 function status(params, options) {
-    if (!SPINNER && !cli.flags.sync) {
+    if ((!SPINNER || !SPINNER.isSpinning) && !cli.flags.sync) {
+        if (SPINNER) {
+            SPINNER.stop();
+            SPINNER.clear();
+        }
         SPINNER = ora('Generating...').start();
     }
     return {
@@ -501,8 +517,7 @@ async function template(message, params) {
             console.error(chalk.red.bold('No template found'))
             EXIT(1);
         }
-        const prompt = await getPrompt(templateText, { prompt: message });
-        writeFileSync("out.txt", JSON.stringify(prompt));
+        const prompt = await getPrompt(templateText, { prompt: message, templatePath });
         const result = await runPrompt(prompt);
         let out = { ...params };
         if (result.attachments) {
@@ -574,7 +589,7 @@ async function findReplace(regex, string, callback) {
 async function getPrompt(template, variables = {}) {
     const RE = {
         block: /{#(?<command>[a-z]+)(?: (?:(?<var>\w+)=)?(?<param>.+?))?}\s*(?<body>[\s\S]+?)\s*{\/(?<endcmd>\1)}/g,
-        inline_command: /kdflkjsklgjlsjfdkgj+/g,
+        inline_command: /{#(?<command>[a-z]+)(?:\s+(?:(?<var>\w+)=)?(?<input>".+"))?\/?}/g,
         var_read: /{(?<name>\w+)}/g,
         var_write: /{(?<var>\w+)=(?<value>[^}]+)}/g,
     }
@@ -630,9 +645,23 @@ async function getPrompt(template, variables = {}) {
         }
         let result = {};
         if (block.type === 'command') {
+            try {
+                block.value = JSON.parse(block.value);
+            } catch(e){}
             // TODO: interpret inline commands
-            result = await runCommand(block.command, variables, simpleVarReplace(block.value));
-            if (block.var) { result.body = ''; }
+            if (block.command === 'import') {
+                console.log(variables.templatePath);
+                block.body = join(variables.templatePath.split(sep).slice(0, -1).join(sep), block.value);
+                block.body = readFileSync(block.body, 'utf-8');
+                const ran = await getPrompt(block.body, variables);
+                Object.assign(variables, ran.variables);
+                attachments.push(...ran.attachments);
+                followup.push(...ran.followup);
+                result = ran.body;
+            } else {
+                result = await runCommand(block.command, variables, simpleVarReplace(block.value));
+                if (block.var) { result.body = ''; }
+            }
         }
         if (block.type === 'block') {
             if (['followup', 'every'].includes(block.command)) {
