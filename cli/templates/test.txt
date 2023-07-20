@@ -1,0 +1,5 @@
+Tell me a joke
+{#followup}
+    Now put it in "joke.txt"
+    {#import "writefiles.txt"}
+{/followup}
