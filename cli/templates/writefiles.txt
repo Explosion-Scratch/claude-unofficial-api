@@ -1,0 +1,25 @@
+From now on you can write to files using the following syntax:
+
+filename.ext
+```language
+file content
+```
+
+You must match this format EXACTLY. Example, to write to hello_world.txt:
+
+hello_world.txt
+```
+This is the content of hello_world.txt
+```
+
+{prompt}
+
+{#every}
+    {#js}
+        const regex = /(?<file>([\w_-]+\.)+\w+)\n?```(\w+\n)?\n?(?<body>[\s\S]+?)\n?```/g
+        let match;
+        while (match = regex.exec(variables.claude_response.completion)) {
+            writeFileSync(match.groups.file, match.groups.body);
+        }
+    {/js}
+{/every}

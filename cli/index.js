@@ -104,10 +104,10 @@ async function main() {
             await claude.clearConversations();
         } catch (e) {
             console.error(chalk.bold.red('Error clearing conversations!'));
-            process.exit(1);
+            EXIT(1);
         }
         console.log(chalk.green.bold('Cleared conversations'))
-        process.exit(0);
+        EXIT(0);
     }
     if (cli.input.length || !process.stdin.isTTY) {
         let message;
@@ -118,7 +118,7 @@ async function main() {
         }
         if (!message?.trim()?.length) {
             console.error(chalk.red.bold('No message provided!'));
-            process.exit(0);
+            EXIT(0);
         }
         const info = {
             convos: []
@@ -126,7 +126,7 @@ async function main() {
         let params = {
             model: MODEL,
             done: (a) => {
-                process.exit(0);
+                EXIT(0);
             },
             attachments: [],
         };
@@ -142,7 +142,7 @@ async function main() {
         message = r.question;
 
         params = await template(message, status(params))
-        if (cli.flags.template) { process.exit(0) }
+        if (cli.flags.template) { EXIT(0) }
 
         if (flags.conversationId) {
             info.convos = await claude.getConversations();
@@ -150,7 +150,7 @@ async function main() {
             if (!info.conversation) {
                 console.error(chalk.red.bold('Conversation not found:'))
                 console.log(chalk.dim.gray(info.convos.map(i => `${i.name} (${i.id})`).join('\n')));
-                process.exit(1);
+                EXIT(1);
             }
             info.conversation.sendMessage(...params)
         } else {
@@ -224,7 +224,7 @@ async function main() {
                     return name.slice(0, 25).toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 }
             }))
-            process.exit(0);
+            EXIT(0);
         }
 
         if (conversation === 'clear') {
@@ -236,14 +236,14 @@ async function main() {
                 choices: [{ name: 'Yes', value: true }, { name: 'No', value: false }],
                 loop: false,
             })
-            if (!answer) { console.error(chalk.bold.red('Aborting')); process.exit(0); }
+            if (!answer) { console.error(chalk.bold.red('Aborting')); EXIT(0); }
             SPINNER.text = 'Clearing conversations...';
             SPINNER.start();
             await claude.clearConversations();
             SPINNER.text = 'Done';
             SPINNER.stop();
             console.log(chalk.bold.green('Done!'));
-            process.exit(0);
+            EXIT(0);
         }
 
         let selectedConversation;
@@ -286,7 +286,7 @@ async function main() {
                 continue;
             }
             if (tq === 'exit' || tq === 'quit') {
-                process.exit(0);
+                EXIT(0);
             }
             if (tq === 'delete') {
                 let sp = ora('Deleting conversation...').start();
@@ -318,22 +318,12 @@ async function main() {
                 params.retry = true
                 question = "";
             }
-            SPINNER = ora(params.retry ? 'Retrying message' : 'Thinking...').start();
-            let text = chalk.dim.gray(`Waiting for Claude (${MODEL})...`);
-            const cb = (msg) => {
-                if (!msg.completion) { return }
-                text = msg.completion;
-                SPINNER.text = chalk.gray.dim(params.retry ? 'Re-generating...' : 'Generating...') + '\n' + md(msg.completion);
-                SPINNER.render();
-                return { skip: true }
-            }
             const r = await getFiles(question, claude);
             question = r.question;
             params.attachments = r.attachments;
-
+            let res;
             if (!selectedConversation) {
-                const res = await template(question, status({
-                    progress: cb,
+                res = await template(question, status({
                     MODEL,
                     ...params,
                 }));
@@ -344,10 +334,13 @@ async function main() {
                 }
             } else {
                 await selectedConversation.sendMessage(question, status({
-                    progress: cb,
                     MODEL,
                     ...params,
                 }))
+                // runEveries
+                if (res[3]?.length) {
+                    res[3]();
+                }
             }
             SPINNER.stop();
             SPINNER.clear();
@@ -374,13 +367,13 @@ function getKey() {
     if (!key || !key.startsWith(START_SEQ)) {
         if (!key) {
             console.error(chalk.red.bold('Error: No sessionKey cookie'));
-            process.exit(1);
+            EXIT(1);
         }
         key = getCookie(key, key);
     }
     if (!key || !key.startsWith(START_SEQ)) {
         console.error(chalk.red.bold('Error: No sessionKey cookie'));
-        process.exit(1);
+        EXIT(1);
     }
     return key.trim();
 }
@@ -394,7 +387,7 @@ function getCookie(name, cookie) {
 async function uploadFile(claude, filename) {
     if (!existsSync(filename)) {
         console.error(chalk.red.bold(`Error: File not found: ${filename}`));
-        process.exit(1);
+        EXIT(1);
     }
     console.log(chalk.gray.dim.italic('Uploading file ' + filename));
     const attachment = await claude.uploadFile(
@@ -472,7 +465,7 @@ function status(params, options) {
             }
             if (!a.completion) {
                 console.error(chalk.red.bold('Error: No response'));
-                process.exit(1);
+                EXIT(1);
             }
             if (a.completion && !options?.clear) {
                 console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
@@ -487,26 +480,38 @@ function status(params, options) {
 async function template(message, params) {
     if (cli.flags.template) {
         let templateText;
+        let templatePath;
+        if (existsSync(cli.flags.template)) {
+            templatePath = cli.flags.template;
+        } else if (existsSync(join(dirname(import.meta.url.replace('file:/', '')), 'templates', cli.flags.template))) {
+            templatePath = join(dirname(import.meta.url.replace('file:/', '')), 'templates', cli.flags.template);
+        } else if (existsSync(join(dirname(import.meta.url.replace('file:/', '')), 'templates', cli.flags.template + '.txt'))) {
+            templatePath = join(dirname(import.meta.url.replace('file:/', '')), 'templates', cli.flags.template + '.txt');
+        } else {
+            console.error(chalk.red.bold('No template found'));
+            EXIT(1);
+        }
         try {
-            templateText = readFileSync(cli.flags.template, 'utf-8');
+            templateText = readFileSync(templatePath, 'utf-8');
         } catch (e) {
             console.error(chalk.red.bold('No template found'));
-            process.exit(0);
+            EXIT(1);
         }
         if (!templateText) {
             console.error(chalk.red.bold('No template found'))
-            process.exit(0);
+            EXIT(1);
         }
         const prompt = await getPrompt(templateText, { prompt: message });
+        writeFileSync("out.txt", JSON.stringify(prompt));
         const result = await runPrompt(prompt);
-        let out = {...params};
+        let out = { ...params };
         if (result.attachments) {
             out.attachments = out.attachments || [];
             out.attachments.push(...result.attachments);
         }
-        return [result.body, out, result.conversation];
+        return [result.body, out, result.conversation, result.runEveries];
     } else {
-        return [message, params, null];
+        return [message, params, null, null];
     }
 }
 
@@ -553,6 +558,7 @@ async function findReplace(regex, string, callback) {
     }
     for (let str of string) {
         if (typeof str !== 'string') { out.push(str); continue; }
+        if (str.length === 0) { out.push(str); continue; }
         let match;
         let prevIndex = 0;
         while ((match = regex.exec(str)) !== null) {
@@ -568,7 +574,7 @@ async function findReplace(regex, string, callback) {
 async function getPrompt(template, variables = {}) {
     const RE = {
         block: /{#(?<command>[a-z]+)(?: (?:(?<var>\w+)=)?(?<param>.+?))?}\s*(?<body>[\s\S]+?)\s*{\/(?<endcmd>\1)}/g,
-        inline_command: /{#(?<command>[a-z]+)(?:\s+(?:(?<var>\w+)=)?(?<input>".+"))?\/?}/g,
+        inline_command: /kdflkjsklgjlsjfdkgj+/g,
         var_read: /{(?<name>\w+)}/g,
         var_write: /{(?<var>\w+)=(?<value>[^}]+)}/g,
     }
@@ -609,6 +615,8 @@ async function getPrompt(template, variables = {}) {
     let promptText = '';
     let attachments = [];
     let followup = [];
+    // Commands which run after every response
+    let every = [];
     for (const block of out) {
         if (typeof block === 'string') {
             if (!block.trim().length) { promptText += '\n'; continue }
@@ -627,7 +635,7 @@ async function getPrompt(template, variables = {}) {
             if (block.var) { result.body = ''; }
         }
         if (block.type === 'block') {
-            if (block.command === 'followup') {
+            if (['followup', 'every'].includes(block.command)) {
                 result = await runCommand(block.command, variables, block.body, block.param);
             } else {
                 const ran = await getPrompt(block.body, variables);
@@ -639,7 +647,6 @@ async function getPrompt(template, variables = {}) {
         }
         if (block.command === 'claude') {
             if (SPINNER) { SPINNER.stop(); SPINNER.clear(); }
-            console.log(result, result.body)
             console.log(chalk.gray.dim(("Claude response finished: " + (result.body || "").toString().slice(0, 100))));
         }
         result = { body: '', variables: {}, ...result }
@@ -653,12 +660,15 @@ async function getPrompt(template, variables = {}) {
         if (result.attachments) {
             attachments.push(...result.attachments);
         }
+        if (result.every) {
+            every.push(...result.every);
+        }
         if (result.followup) {
             followup.push(...result.followup);
         }
     }
     promptText = promptText.replace(/\n+/g, '\n').replace(/ +/g, ' ');
-    return { body: promptText, attachments, followup, variables };
+    return { body: promptText, attachments, followup, variables, every };
 
     function simpleVarReplace(string) {
         return string.replace(RE.var_read, (_, varname) => {
@@ -691,6 +701,11 @@ async function getPrompt(template, variables = {}) {
                 return out;
             })
         }
+        if (command === 'every') {
+            return {
+                every: [{ body: arg }]
+            }
+        }
         if (command === 'file') {
             const file = new Blob([arg], { type: 'text/plain' });
             return {
@@ -721,25 +736,38 @@ async function getPrompt(template, variables = {}) {
 }
 
 async function runPrompt(prompt) {
-    console.log(prompt);
+    prompt = {
+        variables: {},
+        body: '',
+        followup: [],
+        attachments: [],
+        ...prompt,
+    }
     let convo;
-    if (!prompt.body?.trim()?.length) { return; }
+    if (!(prompt.body?.trim()?.length || prompt.every || prompt.followup)) { return; }
     if (!claude.ready) { await claude.init() }
     // Run the prompt
-    prompt.variables.claude_response = await new Promise(async resolve => {
-        let r;
-        let p = new Promise(res => (r = res));
-        convo = await claude.startConversation(prompt.body, status({
-            attachments: prompt.attachments,
-            done(a) {
-                r(a);
-            }
-        }, { clear: false }))
-        const result = await p;
-        resolve(result);
-    })
-    prompt.variables.response = prompt.variables.claude_response.completion;
-    prompt.conversation = convo;
+    if (prompt.dontRespond) {
+        prompt.variables.response = prompt.body;
+        prompt.variables.claude_response = { completion: prompt.body };
+        prompt.conversation = {}
+    } else if (prompt.body?.trim()?.length) {
+        prompt.variables.claude_response = await new Promise(async resolve => {
+            let r;
+            let p = new Promise(res => (r = res));
+            convo = await claude.startConversation(prompt.body, status({
+                attachments: prompt.attachments,
+                done(a) {
+                    r(a);
+                }
+            }, { clear: false }))
+            const result = await p;
+            resolve(result);
+        })
+        prompt.variables.response = prompt.variables.claude_response.completion;
+        prompt.conversation = convo;
+    }
+    await runEveries();
     for (let i of prompt.followup) {
         const followup = await getPrompt(i.body, prompt.variables);
         prompt.followup.push(...followup.followup);
@@ -752,8 +780,24 @@ async function runPrompt(prompt) {
                 }
             }, { clear: prompt.followup.indexOf(i) !== prompt.followup.length - 1 }))
         })
+        await runEveries();
     }
-    return prompt;
+    return { ...prompt, runEveries };
+
+    async function runEveries() {
+        for (let j of prompt.every) {
+            const thing = await getPrompt(j.body, prompt.variables);
+            if (!thing.body?.trim()?.length) { continue };
+            prompt.variables.claude_response = await new Promise(r => {
+                convo.sendMessage(thing.body, status({
+                    attachments: thing.attachments,
+                    done(a) {
+                        r(a);
+                    }
+                }, { clear: true }))
+            })
+        }
+    }
 }
 
 // getPrompt(TEMPLATE, { prompt: 'javascript command line hangman game using inquirer from npm' }).then(r => {
@@ -788,3 +832,17 @@ function split(text, regex) {
 }
 
 main();
+// // const CODE = "{#js}\r\n        const regex = \/\\n?(?<filename>(?:\\w+|\\.\\w+)+)\\n?```\\n?(?<body>\\w+)?(.+)\\n?```\/g;\r\n        let match;\r\n        while (match = regex.exec(claude_response.completion)) {\r\n            writeFileSync(\"claude-\" + match.groups.filename, match.groups.body);\r\n        }\r\n    {\/js}";
+
+// runPrompt({
+//     body: " hello_world.js\n```js\nconsole.log('Hello World!');\n```",
+//     dontRespond: true,
+//     every: [{
+//         body: "{#js}\r\n        const regex = \/(?<file>(\\w+\\.)+\\w+)\\n?```(\\w+\\n)?\\n?(?<body>[\\s\\S]+?)\\n?```\/g\r\n        let match;\r\n        while (match = regex.exec(variables.claude_response.completion)) {\r\n            writeFileSync(\"claude-\" + match.groups.filename, match.groups.body);\r\n        }\r\n    {\/js}",
+//     }]
+// })
+
+
+function EXIT(status) {
+    process.exit(status);
+}

@@ -131,3 +131,6 @@ dist
 .pnp.*
 
 conversation*.json
+
+claude-*.*
+out.txt

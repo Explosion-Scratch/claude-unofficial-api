@@ -1,18 +1,1 @@
-{
-  "variables": {
-    "prompt": "a\n",
-    "response": "",
-    "result": "",
-    "claude_response": {
-      "completion": " I'm afraid I don't actually count the number of words in my responses. As an AI assistant created by Anthropic to be helpful, harmless, and honest, I don't have an internal mechanism for guessing or predicting the length of my own responses. The length and content of my responses are determined dynamically based on the conversation and my training objective of having a friendly, natural dialogue. Perhaps we could have an interesting conversation about something else instead!",
-      "stop_reason": "stop_sequence",
-      "model": "claude-2.0",
-      "stop": "\n\nHuman:",
-      "log_id": "bcef12115bb97765f6010574a2deb7a3a31089235915450fb6930a98fee33458",
-      "messageLimit": {
-        "type": "within_limit"
-      }
-    }
-  },
-  "count": 78
-}
+{"body":"From now on you can write to files using the following syntax:\nfilename.ext\n```language\nfile content\n```\nYou must match this format EXACTLY. Example, to write to hello_world.txt:\nhello_world.txt\n```\nThis is the content of hello_world.txt\n```\nWrite a javascript hello world to index.js\n","attachments":[],"followup":[],"variables":{"prompt":"Write a javascript hello world to index.js","response":"","result":""},"every":[{"body":"{#js}\n        const regex = /(?<file>([\\w_-]+\\.)+\\w+)\\n?```(\\w+\\n)?\\n?(?<body>[\\s\\S]+?)\\n?```/g\n        let match;\n        while (match = regex.exec(variables.claude_response.completion)) {\n            writeFileSync(\"claude-\" + match.groups.file, match.groups.body);\n        }\n    {/js}"}]}
