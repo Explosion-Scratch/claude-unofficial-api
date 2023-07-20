@@ -7,7 +7,7 @@ import ora from 'ora';
 import * as marked from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import meow from 'meow';
-import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync } from 'fs';
+import { exists, existsSync, mkdirSync, readFileSync, writeFile, writeFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
@@ -45,44 +45,60 @@ const cli = meow(`
     ${chalk.bold.white("--key")}              Path to a text file containing the sessionKey cookie value from https://claude.ai
     ${chalk.bold.white("--template")}         A prompt template text file
     ${chalk.bold.white("--clear")}            Clear all conversations (no confirmation)
+    ${chalk.bold.white("--prompt.___")}       Define custom variables for templates (e.g. ${chalk.italic('--prompt.schema schema.d.ts')}, used as {schema} in templates)
   
   Examples
     $ claude --conversation-id fc6d1a1a-8722-476c-8db9-8a871c121ee9
     $ claude --json
     $ claude --files file1.txt,file2.txt
     $ echo "hello world" | claude
+    $ echo "Tell me a joke and write it to joke.txt" | claude --template ./joke.txt
 `, {
     importMeta: import.meta,
     flags: {
         markdown: {
             type: 'boolean',
             default: true,
+            shortFlag: 'md',
         },
         conversationId: {
-            type: 'string'
+            type: 'string',
+            shortFlag: 'c',
         },
         json: {
             type: 'boolean',
             default: false,
+            shortFlag: 'j',
         },
         files: {
-            type: 'string'
+            type: 'string',
+            shortFlag: 'f',
         },
         model: {
             type: 'string',
             choices: ['claude-2', 'claude-instant-100k', 'claude-1', 'claude-1.3'],
-            default: 'claude-2'
+            default: 'claude-2',
+            shortFlag: 'm',
         },
         sync: {
             type: 'boolean',
-            default: false
+            default: false,
+            shortFlag: 's',
         },
         key: {
             type: 'string',
-            default: '~/.claude_key'
+            default: '~/.claude_key',
+            shortFlag: 'k',
         },
         template: {
             type: 'string',
+            shortFlag: 't',
+        },
+        prompt: {
+            type: 'string',
+            shortFlag: 'p',
+            isRequired: false,
+            isMultiple: true,
         }
     }
 });
@@ -117,6 +133,9 @@ async function main() {
             message = cli.input.join(' ')
         }
         if (!message?.trim()?.length) {
+            message = getPromptInput().prompts[0];
+        }
+        if (!message?.trim()?.length) {
             console.error(chalk.red.bold('No message provided!'));
             EXIT(0);
         }
@@ -130,7 +149,6 @@ async function main() {
             },
             attachments: [],
         };
-        SPINNER = ora("Generating...").start();
         if (flags.files) {
             for (let fileName of flags.files.trim().split(',').map(i => i.trim())) {
                 const fileContent = await uploadFile(claude, fileName);
@@ -455,7 +473,8 @@ async function getStdin(timeout = 500) {
 
 let SPINNER;
 function status(params, options) {
-    if ((!SPINNER || !SPINNER.isSpinning) && !cli.flags.sync) {
+    const SILENT = cli.flags.sync || options?.silent;
+    if ((!SPINNER || !SPINNER.isSpinning) && !SILENT) {
         if (SPINNER) {
             SPINNER.stop();
             SPINNER.clear();
@@ -466,11 +485,11 @@ function status(params, options) {
         ...params,
         progress(a) {
             let result;
-            if (params.progress && !cli.flags.sync) {
+            if (params.progress && !SILENT) {
                 result = params.progress(a)
             }
             if (result?.skip) { return };
-            if (SPINNER && a.completion && !cli.flags.sync) {
+            if (SPINNER && a.completion && !SILENT) {
                 SPINNER.text = chalk.gray.dim('Generating...\n\n' + md(a.completion));
             }
         },
@@ -483,7 +502,7 @@ function status(params, options) {
                 console.error(chalk.red.bold('Error: No response'));
                 EXIT(1);
             }
-            if (a.completion && !options?.clear) {
+            if (a.completion && !options?.clear && !SILENT) {
                 console.log(cli.flags.json ? JSON.stringify(a) : cli.flags.markdown ? md(a.completion) : a.completion);
             }
             if (params.done) {
@@ -517,7 +536,12 @@ async function template(message, params) {
             console.error(chalk.red.bold('No template found'))
             EXIT(1);
         }
-        const prompt = await getPrompt(templateText, { prompt: message, templatePath });
+        const PROMPTINPUT = getPromptInput();
+        const prompt = await getPrompt(templateText, {
+            ...PROMPTINPUT,
+            prompt: message,
+            templatePath
+        });
         const result = await runPrompt(prompt);
         let out = { ...params };
         if (result.attachments) {
@@ -528,6 +552,30 @@ async function template(message, params) {
     } else {
         return [message, params, null, null];
     }
+}
+
+function getPromptInput() {
+    const PARAMS = {};
+    let f = cli.flags.prompt;
+    if (typeof f !== 'array') {
+        f = [f];
+    }
+    for (let val of f) {
+        if (typeof val === 'object') {
+            Object.assign(PARAMS, val);
+        } else {
+            PARAMS.prompts = Array.isArray(PARAMS.prompts) ? PARAMS.prompts : [] || [];
+            PARAMS.prompts.push(val);
+        }
+    }
+    for (let [k, v] of Object.entries(PARAMS)) {
+        try {
+            if (existsSync(v)) {
+                PARAMS[k] = readFileSync(v, 'utf-8');
+            }
+        } catch (e) { }
+    }
+    return PARAMS;
 }
 
 function callClaude(prompt) {
@@ -569,8 +617,8 @@ async function getPrompt(template, variables = {}) {
     const RE = {
         block: /{#(?<command>[a-z]+)(?: (?:(?<var>\w+)=)?(?<param>.+?))?}\s*(?<body>[\s\S]+?)\s*{\/(?<endcmd>\1)}/g,
         inline_command: /{#(?<command>[a-z]+)(?:\s+(?:(?<var>\w+)=)?(?<input>".+"))?\/?}/g,
-        var_read: /{(?<name>\w+)}/g,
-        var_write: /{(?<var>\w+)=(?<value>[^}]+)}/g,
+        var_read: /{(?<name>[\w_]+)}/g,
+        var_write: /{(?<var>[\w_]+)=(?<value>[^}]+)}/g,
     }
     let out = template;
     out = await findReplace(RE.block, out, async (a) => {
@@ -627,7 +675,7 @@ async function getPrompt(template, variables = {}) {
         if (block.type === 'command') {
             try {
                 block.value = JSON.parse(block.value);
-            } catch(e){}
+            } catch (e) { }
             // TODO: interpret inline commands
             if (block.command === 'import') {
                 console.log(variables.templatePath);
@@ -766,7 +814,7 @@ async function runPrompt(prompt) {
                 done(a) {
                     r(a);
                 }
-            }, { clear: false }))
+            }, { clear: !!prompt.variables.__clear || false, silent: !!prompt.variables.__silent }))
             const result = await p;
             resolve(result);
         })
@@ -785,7 +833,10 @@ async function runPrompt(prompt) {
                 done(a) {
                     r(a);
                 }
-            }, { clear: prompt.followup.indexOf(i) !== prompt.followup.length - 1 }))
+            }, {
+                clear: !!followup.variables.__clear || prompt.followup.indexOf(i) !== prompt.followup.length - 1,
+                silent: !!followup.variables.__silent || !!prompt.variables.__silent || false,
+            }))
         })
         await runEveries();
     }

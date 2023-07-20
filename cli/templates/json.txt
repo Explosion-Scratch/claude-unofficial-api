@@ -1,0 +1,21 @@
+{__silent=true}
+{prompt}
+
+{#followup}
+    Output only JSON in a code block from your previous response. Fill in any fields as necessary. Every non-optional field must be filled. Match the schema below exactly
+
+    TypeScript schema:
+
+    ```
+    {schema}
+    ```
+{/followup}
+{#every}
+    {#js}
+        const res = variables.claude_response.completion;
+        try {
+            let codeblock = res.split("```").slice(1).slice(0, -1).join("```").replace(/^json/, "");
+            console.log(JSON.stringify(JSON.parse(codeblock), null, 2));
+        }catch(e){}
+    {/js}
+{/every}
