@@ -1,0 +1,28 @@
+From now on you have access to a search engine where you can search for current web information and get the result sent back. To search respond with only: "SEARCH[term]". Only search when you need to or if inquired about recent events and don't search if the prompt requests you not to search. Wait for the user (me) to respond before you continue with your response. After you get the search results respond to the original prompt (given below)
+
+Prompt: "{prompt}"
+
+Example:
+
+User: What's the weather today
+
+Claude (you): SEARCH[weather]
+
+User: [search results]
+
+Claude (you): The weather is 95 degrees and sunny today! ☀️
+
+Your first prompt is: "{prompt}"
+
+{#every}
+    {#jsd}
+        const claude_res = variables.claude_response.completion.trim();
+        const RE = /^SEARCH\[(.+)\]$/;
+        if (RE.test(claude_res)) {
+            const cmd = `google-it --query=${JSON.stringify(claude_res.match(RE)[1])} --limit 5`;
+            return await shell(cmd);
+        } else {
+            return '';
+        }
+    {/jsd}
+{/every}

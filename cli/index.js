@@ -7,13 +7,14 @@ import ora from 'ora';
 import * as marked from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import meow from 'meow';
-import { exists, existsSync, mkdirSync, readFileSync, writeFile, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import "dotenv/config";
 import mime from 'mime-types';
 import { homedir } from 'os';
 import { dirname, join, sep } from 'path';
 import "isomorphic-fetch";
 import { File } from "@web-std/file";
+import { exec } from 'child_process';
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({
@@ -45,6 +46,7 @@ const cli = meow(`
     ${chalk.bold.white("--key")}              Path to a text file containing the sessionKey cookie value from https://claude.ai
     ${chalk.bold.white("--template")}         A prompt template text file
     ${chalk.bold.white("--clear")}            Clear all conversations (no confirmation)
+    ${chalk.bold.white("--continue")}         Continue the most recent conversation
     ${chalk.bold.white("--prompt.___")}       Define custom variables for templates (e.g. ${chalk.italic('--prompt.schema schema.d.ts')}, used as {schema} in templates)
   
   Examples
@@ -99,6 +101,10 @@ const cli = meow(`
             shortFlag: 'p',
             isRequired: false,
             isMultiple: true,
+        },
+        continue: {
+            type: 'boolean',
+            default: false,
         }
     }
 });
@@ -159,19 +165,28 @@ async function main() {
         params.attachments.push(...r.attachments);
         message = r.question;
 
-        params = await template(message, status(params))
-        if (cli.flags.template) { EXIT(0) }
+        if (cli.flags.template) {
+            await template(message, status(params));
+            EXIT(0);
+        }
 
-        if (flags.conversationId) {
+        if (flags.conversationId || cli.flags.continue) {
             info.convos = await claude.getConversations();
-            info.conversation = info.convos.find(c => c.id === flags.conversationId || c.name === flags.conversationId);
+            if (cli.flags.continue) {
+                info.conversation = info.convos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+            } else {
+                info.conversation = info.convos.find(c => c.id === flags.conversationId || c.name === flags.conversationId);
+            }
             if (!info.conversation) {
                 console.error(chalk.red.bold('Conversation not found:'))
                 console.log(chalk.dim.gray(info.convos.map(i => `${i.name} (${i.id})`).join('\n')));
                 EXIT(1);
             }
+            console.log(chalk.green.bold('Continuing conversation: ' + info.conversation.name));
+            params = await template(message, status(params));
             info.conversation.sendMessage(...params)
         } else {
+            params = await template(message, status(params));
             await claude.startConversation(...params)
         }
     } else {
@@ -743,6 +758,25 @@ async function getPrompt(template, variables = {}) {
                 value: arg, body: '',
             }
         }
+        if (command === 'shell' || ['shd', 'shelldisplay', 'shelld'].includes(command)) {
+            let result;
+            try {
+                result = await shell(arg)
+            } catch (e) {
+                return { value: '', body: '' };
+            }
+            console.log("GOT SHELL RESULT", {result});
+            if (['shd', 'shelld', 'shelldisplay'].includes(command)) {
+                return {
+                    value: result,
+                    body: result,
+                }
+            }
+            return {
+                value: result,
+                body: '',
+            }
+        }
         if (command === 'js' || ['jsdisplay', 'jsd'].includes(command)) {
             let pr;
             const BLACKLIST = ['void', 'var', 'let', 'const', 'private', 'public', 'window', 'body', 'document', 'globalThis', 'globals', 'import', 'class', 'async', 'function', 'this', 'return', 'yield', 'throw', 'catch', 'break', 'case', 'continue', 'default', 'do', 'else', 'finally', 'if', 'in', 'return', 'switch', 'throw', 'try', 'while', 'with', 'yield'];
@@ -840,8 +874,8 @@ async function runPrompt(prompt) {
                     r(a);
                 }
             }, {
-                clear: !!followup.variables.__clear || prompt.followup.indexOf(i) !== prompt.followup.length - 1,
-                silent: !!followup.variables.__silent || !!prompt.variables.__silent || false,
+                clear: !!followup.variables.__clear ?? prompt.followup.indexOf(i) !== prompt.followup.length - 1,
+                silent: !!followup.variables.__silent ?? !!prompt.variables.__silent ?? false,
             }))
         })
         await runEveries();
@@ -858,7 +892,7 @@ async function runPrompt(prompt) {
                     done(a) {
                         r(a);
                     }
-                }, { clear: true }))
+                }, { clear: !!thing.variables.__clear ?? true }))
             })
         }
     }
@@ -868,4 +902,16 @@ main();
 
 function EXIT(status) {
     process.exit(status);
+}
+
+function shell(command) {
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve(stdout);
+            }
+        });
+    });
 }

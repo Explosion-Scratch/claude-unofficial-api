@@ -1,0 +1,11 @@
+{#shell}
+    yt-dlp --skip-download --write-sub --sub-lang en --output ${TMPDIR%?}/sub '{prompt}'
+{/shell}
+
+Summarize the video transcript in the uploaded file sub.vtt bullet points. Cover everything in the transcript in readable and concise bullet points.
+
+{#file sub.vtt}
+    {#shd}
+        cat ${TMPDIR%?}/sub.*
+    {/shd}
+{/file}
