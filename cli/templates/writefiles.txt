@@ -1,4 +1,7 @@
-From now on you can write to files using the following syntax:
+From now on you can write to files. See instructions.txt for details on how to write files.
+
+{#file instructions.txt}
+Write files using the following syntax:
 
 filename.ext
 ```language
@@ -11,7 +14,9 @@ hello_world.txt
 ```
 This is the content of hello_world.txt
 ```
+{/file}
 
+Follow the following request, write files as needed:
 {prompt}
 
 {#every}

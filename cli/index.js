@@ -537,11 +537,17 @@ async function template(message, params) {
             EXIT(1);
         }
         const PROMPTINPUT = getPromptInput();
-        const prompt = await getPrompt(templateText, {
+        let prompt = await getPrompt(templateText, {
             ...PROMPTINPUT,
             prompt: message,
             templatePath
         });
+        prompt.attachments = [...(params.attachments || []), ...(prompt.attachments || [])];
+        delete params.attachments;
+        prompt = {
+            ...params,
+            ...prompt,
+        }
         const result = await runPrompt(prompt);
         let out = { ...params };
         if (result.attachments) {
