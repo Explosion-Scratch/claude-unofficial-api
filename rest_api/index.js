@@ -1,9 +1,14 @@
 import express from 'express';
 import { Claude } from '../index.js';
 import { readFileSync } from 'fs';
+import bodyParser from 'body-parser';
 
 const app = express();
 app.set('json spaces', 2)
+
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 
 const version = JSON.parse(readFileSync('package.json', 'utf-8')).version + ` (Claude v${JSON.parse(readFileSync('../package.json', 'utf-8')).version})`;
