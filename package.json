@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.9",
+    "body-parser": "^1.20.2",
     "dotenv": "^16.3.1",
     "typescript": "^5.1.6"
   }
