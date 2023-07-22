@@ -15,6 +15,7 @@ import { dirname, join, sep } from 'path';
 import "isomorphic-fetch";
 import { File } from "@web-std/file";
 import { exec } from 'child_process';
+import open from 'open';
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({
@@ -48,6 +49,7 @@ const cli = meow(`
     ${chalk.bold.white("--clear")}            Clear all conversations (no confirmation)
     ${chalk.bold.white("--continue")}         Continue the most recent conversation
     ${chalk.bold.white("--prompt.___")}       Define custom variables for templates (e.g. ${chalk.italic('--prompt.schema schema.d.ts')}, used as {schema} in templates)
+    ${chalk.bold.white("--open")}             Open the most recent conversation (or --conversation-id) on the web interface
   
   Examples
     $ claude --conversation-id fc6d1a1a-8722-476c-8db9-8a871c121ee9
@@ -121,6 +123,21 @@ async function main() {
     const { flags } = cli;
     await claude.init();
     MODEL = cli.flags.model;
+    if (cli.flags.open) {
+        if (cli.flags.conversationId) {
+            open(`https://claude.ai/chat/${cli.flags.conversationId}`);
+            EXIT(0);
+        } else {
+            const convo = await claude.getConversations().then(a => a[0]);
+            if (!convo) {
+                console.log(chalk.bold.yellow("No conversations found, opening homepage"));
+                open(`https://claude.ai`);
+                EXIT(0);
+            }
+            open(`https://claude.ai/chat/${convo.conversationId}`);
+            EXIT(0);
+        }
+    }
     if (cli.flags.clear) {
         try {
             await claude.clearConversations();
@@ -765,7 +782,7 @@ async function getPrompt(template, variables = {}) {
             } catch (e) {
                 return { value: '', body: '' };
             }
-            console.log("GOT SHELL RESULT", {result});
+            console.log("GOT SHELL RESULT", { result });
             if (['shd', 'shelld', 'shelldisplay'].includes(command)) {
                 return {
                     value: result,
