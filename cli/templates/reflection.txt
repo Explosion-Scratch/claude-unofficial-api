@@ -1,0 +1,12 @@
+{__clear=true}
+
+Request: {prompt}
+
+Before completing the request write, first think through the information you need for the request, what assumptions you need to make, and the logic of the problem. Then write out your initial response, 10 criticisms of your thoughts, logical process, gaps/wrong sections in the response and if it answers the user's question (with ways to improve your draft and make the answer correctly answer the prompt— be harsh), then 5 final thoughts. Then write your final version. Make sure your final version is easy to read quickly, isn't too long, is concise and relevant. Use bullet points in your final if it seems appropriate (i.e. it's not an essay) and limit your final to 2 paragraphs or so. Don't be afraid to have your own opinions and be informal. Start with "FINAL:" for the final version
+{#every}
+    {#js}
+        if (variables.claude_response.completion.includes("FINAL:")){
+            console.log(md(variables.claude_response.completion.split("FINAL:")[1]))
+        }
+    {/js}
+{/every}

@@ -1,0 +1,13 @@
+{__silent=true}
+
+{prompt}
+
+First write out your initial code draft, then think through 10 thoughts and criticisms of the code you wrote. Make sure to use the latest syntax, try not to rely on libraries if possible. Don't include debug or comments or empty lines. Include testing, make the code modular and implement checks to make sure it works properly. Make sure your code is readable. After your draft, write out some final thoughts and then write your final version. Make sure your final doesn't have empty lines, non JSDoc comments, placeholders, etc. Start your final version with FINAL:
+
+{#every}
+    {#js}
+        if (variables.claude_response.completion.includes("FINAL:")){
+            console.log(md(variables.claude_response.completion.split("FINAL:")[1]))
+        }
+    {/js}
+{/every}

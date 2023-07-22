@@ -1,0 +1,30 @@
+{prompt} 
+
+Output your suggested edits in the following format:
+- `>` - Indicates a line being inserted
+- `<` - Indicates a line being removed
+
+Focus your suggestions on the following request: "{prompt}"
+
+Here is an example:
+```js
+> import express from "express";
+> import {join} from "path";
+< const express = require("express");
+< const path = require("path");
+
+// Start the server
+app.get("/", () => {
+<    const path = path.join(__dirname, "index.html");
+>    const path = join(import.meta.url.replace("file:/", ""), "index.html");
+    res.sendFile(path);
+})
+
+< const PORT = 3000;
+> const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+<    console.log("Listening on port " + PORT);
+>    console.log(`Listening on port ${PORT}`);    
+})
+```
