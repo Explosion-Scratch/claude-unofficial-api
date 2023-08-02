@@ -73,6 +73,8 @@ const claude = new Claude({
   sessionKey: 'YOUR_SESSION_KEY'
 });
 
+await claude.init();
+
 const conversation = await claude.startConversation('Hello Claude!');
 
 await conversation.sendMessage('How are you today?');
