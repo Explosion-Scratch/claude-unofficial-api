@@ -1,5 +1,5 @@
 {__silent="true"}
-Write short markdown notes in bullet points using sentence fragments about {prompt} for a high school class. Include important terms, examples and explanations but be very concise. Put your result in a code block surrounded by "```"
+Write short markdown notes in bullet points using sentence fragments about {prompt} for a high school class. Include important terms, examples and explanations. Put your result in a code block surrounded by "```"
 
 Use double brackets notation inline to link to other notes, e.g. "Pedir is a [[Stem Changing Verb]]". At the top of the document include YAML frontmatter in the following format:
 ```
@@ -10,12 +10,12 @@ banner_icon: 🎯
 ---
 ```
 
-Use a clever emoji in the `banner_icon` that matches the title, not the class. Be very concise with your notes. Only a few bullet points. Use four spaces for indents.
+Use a clever emoji in the `banner_icon` that matches the title, not the class. Use latex for math equations ("$ inline math $" or "$$ block math $$"). Be very detailed with your notes but use short sentences and sentence fragments. Use four spaces for indents. Make sure to include all important terms (with informal definitions), relevant details and examples. Use sub bullet points and headings when you need them. When you use key terms make sure to include the definitions. Focus on being very readable.
 
 {#followup}
    {#js}
       try {
-         const out = variables.claude_response.completion.split("```").slice(1).slice(0, -1).join("```").replace(/^(md|markdown|yaml|yml)\n/, "");
+         const out = variables.claude_response.completion.split("```").slice(1).slice(0, -1).join("```").replace(/^(md|markdown|yaml|yml)\n/, "").trim();
          console.log(out);
          const filename = variables.prompt.split(":")[0].replace(/[^a-z0-9 ]+/gi, " ").trim() + ".md"
          writeFileSync(filename, out);
