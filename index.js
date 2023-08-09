@@ -442,8 +442,8 @@ export class Conversation {
         let resolve;
         let returnPromise = new Promise(r => (resolve = r));
         let parsed;
-        readStream(response, (a) => {
-            rawResponse(a);
+        readStream(response, (a, fullResponse) => {
+            rawResponse(a, fullResponse);
             if (!a.toString().startsWith('data:')) {
                 return;
             }
@@ -452,10 +452,19 @@ export class Conversation {
             } catch (e) {
                 return;
             }
-            progress(parsed);
+            const PROGRESS_OBJECT = {
+                ...parsed, completion: fullResponse.split('\n\n').filter(i => i.startsWith('data:')).map(i => {
+                    try {
+                        return JSON.parse(i.toString().replace(/^data\: */, '').split('\n\ndata:')[0]?.trim() || "{}");
+                    } catch (e) {
+                        return {}
+                    }
+                }).map(i => i.completion).join(''), delta: parsed.completion
+            };
+            progress(PROGRESS_OBJECT);
             if (parsed.stop_reason === 'stop_sequence') {
-                done(parsed);
-                resolve(parsed);
+                done(PROGRESS_OBJECT);
+                resolve(PROGRESS_OBJECT);
             }
         })
         return returnPromise;
@@ -577,7 +586,16 @@ async function readStream(response, progressCallback) {
         }
         chunks.push(value);
         received += value?.length || 0;
-        if (value) { progressCallback(new TextDecoder('utf-8').decode(value)); }
+
+        let full = new Uint8Array(received);
+        let position = 0;
+
+        for (let chunk of chunks) {
+            full.set(chunk, position);
+            position += chunk.length;
+        }
+
+        if (value) { progressCallback(new TextDecoder('utf-8').decode(value), new TextDecoder('utf-8').decode(full)); }
     }
 
     let body = new Uint8Array(received);
