@@ -444,18 +444,20 @@ export class Conversation {
         let parsed;
         readStream(response, (a) => {
             rawResponse(a);
-            if (!a.toString().startsWith('data:')) {
-                return;
-            }
-            try {
-                parsed = JSON.parse(a.toString().replace(/^data\:/, '').split('\n\ndata:')[0]?.trim() || "{}");
-            } catch (e) {
-                return;
-            }
-            progress(parsed);
-            if (parsed.stop_reason === 'stop_sequence') {
-                done(parsed);
-                resolve(parsed);
+            const records = a.split('data:').map(record => record.trim()).filter(record => record.length > 0);
+            
+            for (const record of records) {
+                try {
+                    parsed = JSON.parse(record);
+                } catch (e) {
+                    continue;
+                }
+                progress(parsed);
+                if (parsed.stop_reason === 'stop_sequence') {
+                    done(parsed);
+                    resolve(parsed);
+                    return
+                }
             }
         })
         return returnPromise;
