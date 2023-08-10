@@ -1,5 +1,6 @@
 /**
  * The main Claude API client class.
+ * @typedef Claude
  * @class
  * @classdesc Creates an instance of the Claude API client.
  */
@@ -29,9 +30,25 @@ export class Claude {
         proxy?: string | Function;
         fetch?: Function;
     });
+    /**
+     * If the Claude client has initialized yet (call `init()` if you haven't and this is false)
+     * @property {boolean}
+     */
     ready: boolean;
+    /**
+     * A proxy function/string to connect via
+     * @property {({endpoint: string, options: Object}) => {endpoint: string, options: Object} | string}
+     */
     proxy: Function;
+    /**
+     * A fetch function, defaults to globalThis.fetch
+     * @property {Function}
+     */
     fetch: Function;
+    /**
+     * The session key string (from the cookie)
+     * @property {string}
+     */
     sessionKey: string;
     /**
      * Get available Claude models.
@@ -68,99 +85,7 @@ export class Claude {
      * @param {boolean} [params.temporary=true] - Delete after getting response
      * @returns {Promise<MessageStreamChunk>} Result message
      */
-    sendMessage(message: string, { conversation, temporary, ...params }?: {
-        /**
-         * Whether to retry the most recent message in the conversation instead of sending a new one
-         */
-        retry?: boolean;
-        /**
-         * The timezone
-         */
-        timezone?: string;
-        /**
-         * Attachments
-         */
-        attachments?: {
-            /**
-             * The file name
-             */
-            file_name: string;
-            /**
-             * The file's mime type
-             */
-            file_type: string;
-            /**
-             * The file size in bytes
-             */
-            file_size: number;
-            /**
-             * The contents of the file that were extracted
-             */
-            extracted_content: string;
-            /**
-             * The total pages of the document
-             */
-            totalPages?: number | null;
-        }[];
-        /**
-         * Callback when done receiving the message response
-         */
-        done?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string | null;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-        /**
-         * Callback on message response progress
-         */
-        progress?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string | null;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-    }): Promise<{
+    sendMessage(message: string, { conversation, temporary, ...params }?: SendMessageParams): Promise<{
         /**
          * The markdown text completion for this response
          */
@@ -202,28 +127,7 @@ export class Claude {
      */
     init(): Promise<void>;
     organizationId: string;
-    recent_conversations: {
-        /**
-         * The conversation ID
-         */
-        conversationId: string;
-        /**
-         * The conversation name
-         */
-        name: string;
-        /**
-         * The conversation summary (usually empty)
-         */
-        summary: string;
-        /**
-         * The conversation created at
-         */
-        created_at: string;
-        /**
-         * The conversation updated at
-         */
-        updated_at: string;
-    }[];
+    recent_conversations: Conversation[];
     /**
      * An organization
      * @typedef Organization
@@ -297,14 +201,6 @@ export class Claude {
      * @param {MessageStreamChunk} a The response in progress
      */
     /**
-     * @typedef SendMessageParams
-     * @property {Boolean} [retry=false] Whether to retry the most recent message in the conversation instead of sending a new one
-     * @property {String} [timezone="America/New_York"] The timezone
-     * @property {Attachment[]} [attachments=[]] Attachments
-     * @property {doneCallback} [done] Callback when done receiving the message response
-     * @property {progressCallback} [progress] Callback on message response progress
-     */
-    /**
      * Start a new conversation
      * @param {String} message The message to send to start the conversation
      * @param {SendMessageParams} [params={}] Message params passed to Conversation.sendMessage
@@ -314,120 +210,7 @@ export class Claude {
      * const conversation = await claude.startConversation("Hello! How are you?")
      * console.log(await conversation.getInfo());
      */
-    startConversation(message: string, params?: {
-        /**
-         * Whether to retry the most recent message in the conversation instead of sending a new one
-         */
-        retry?: boolean;
-        /**
-         * The timezone
-         */
-        timezone?: string;
-        /**
-         * Attachments
-         */
-        attachments?: {
-            /**
-             * The file name
-             */
-            file_name: string;
-            /**
-             * The file's mime type
-             */
-            file_type: string;
-            /**
-             * The file size in bytes
-             */
-            file_size: number;
-            /**
-             * The contents of the file that were extracted
-             */
-            extracted_content: string;
-            /**
-             * The total pages of the document
-             */
-            totalPages?: number | null;
-        }[];
-        /**
-         * Callback when done receiving the message response
-         */
-        done?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string | null;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-        /**
-         * Callback on message response progress
-         */
-        progress?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string | null;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-    }): Promise<{
-        /**
-         * The conversation ID
-         */
-        conversationId: string;
-        /**
-         * The conversation name
-         */
-        name: string;
-        /**
-         * The conversation summary (usually empty)
-         */
-        summary: string;
-        /**
-         * The conversation created at
-         */
-        created_at: string;
-        /**
-         * The conversation updated at
-         */
-        updated_at: string;
-    }>;
+    startConversation(message: string, params?: SendMessageParams): Promise<Conversation>;
     /**
      * Get a conversation by its ID
      * @param {UUID} id The uuid of the conversation (Conversation.uuid or Conversation.conversationId)
@@ -436,28 +219,7 @@ export class Claude {
      * @example
      * const conversation = await claude.getConversation("222aa20a-bc79-48d2-8f6d-c819a1b5eaed");
      */
-    getConversation(id: any): {
-        /**
-         * The conversation ID
-         */
-        conversationId: string;
-        /**
-         * The conversation name
-         */
-        name: string;
-        /**
-         * The conversation summary (usually empty)
-         */
-        summary: string;
-        /**
-         * The conversation created at
-         */
-        created_at: string;
-        /**
-         * The conversation updated at
-         */
-        updated_at: string;
-    };
+    getConversation(id: any): Conversation | null;
     /**
      * Get all conversations
      * @async
@@ -465,28 +227,7 @@ export class Claude {
      * @example
      * console.log(`You have ${await claude.getConversations().length} conversations:`);
      */
-    getConversations(): Promise<{
-        /**
-         * The conversation ID
-         */
-        conversationId: string;
-        /**
-         * The conversation name
-         */
-        name: string;
-        /**
-         * The conversation summary (usually empty)
-         */
-        summary: string;
-        /**
-         * The conversation created at
-         */
-        created_at: string;
-        /**
-         * The conversation updated at
-         */
-        updated_at: string;
-    }[]>;
+    getConversations(): Promise<Conversation[]>;
     /**
      * The response from uploading a file (an attachment)
      * @typedef Attachment
@@ -533,19 +274,21 @@ export class Claude {
     }>;
 }
 /**
+ * @typedef SendMessageParams
+ * @property {Boolean} [retry=false] Whether to retry the most recent message in the conversation instead of sending a new one
+ * @property {String} [timezone="America/New_York"] The timezone
+ * @property {Attachment[]} [attachments=[]] Attachments
+ * @property {doneCallback} [done] Callback when done receiving the message response
+ * @property {progressCallback} [progress] Callback on message response progress
+ * @property {string} [model=claude.defaultModel()] The model to use
+ */
+/**
  * A Claude conversation instance.
  * @class
+ * @typedef Conversation
  * @classdesc Represents an active Claude conversation.
  */
 export class Conversation {
-    /**
-     * @typedef Conversation
-     * @property {String} conversationId The conversation ID
-     * @property {String} name The conversation name
-     * @property {String} summary The conversation summary (usually empty)
-     * @property {String} created_at The conversation created at
-     * @property {String} updated_at The conversation updated at
-     */
     /**
      * Create a Conversation instance.
      * @param {Claude} claude - Claude client instance
@@ -565,134 +308,72 @@ export class Conversation {
         updated_at?: string;
         model?: string;
     });
-    claude: Claude;
+    /**
+     * The conversation ID
+     * @property {string}
+     */
     conversationId: string;
+    /**
+     * The conversation name
+     * @property {string}
+     */
+    name: any;
+    /**
+     * The conversation summary (usually empty)
+     * @property {string}
+     */
+    summary: any;
+    /**
+     * The conversation created at
+     * @property {string}
+     */
+    created_at: any;
+    /**
+     * The conversation updated at
+     * @property {string}
+     */
+    updated_at: any;
+    /**
+     * The Claude client
+     * @property {Claude}
+     */
+    claude: any;
+    /**
+     * The request function (from parent claude instance)
+     * @property {(url: string, options: object) => Response}
+     */
     request: (endpoint: string, options: any) => Promise<Response>;
-    model: string;
+    /**
+     * The current model
+     * @property {string}
+     */
+    model: any;
+    /**
+     * If the Claude client has initialized yet (call `init()` if you haven't and this is false)
+     * @property {boolean}
+     */
+    ready: any;
+    /**
+     * A proxy function/string to connect via
+     * @property {({endpoint: string, options: Object}) => {endpoint: string, options: Object} | string}
+     */
+    proxy: any;
+    /**
+     * A fetch function, defaults to globalThis.fetch
+     * @property {Function}
+     */
+    fetch: any;
     /**
      * Convert the conversation to a JSON object
      * @returns {Conversation} The serializable object
      */
-    toJSON(): {
-        /**
-         * The conversation ID
-         */
-        conversationId: string;
-        /**
-         * The conversation name
-         */
-        name: string;
-        /**
-         * The conversation summary (usually empty)
-         */
-        summary: string;
-        /**
-         * The conversation created at
-         */
-        created_at: string;
-        /**
-         * The conversation updated at
-         */
-        updated_at: string;
-    };
+    toJSON(): Conversation;
     /**
      * Retry the last message in the conversation
      * @param {SendMessageParams} [params={}]
      * @returns {Promise<MessageStreamChunk>}
      */
-    retry(params?: {
-        /**
-         * Whether to retry the most recent message in the conversation instead of sending a new one
-         */
-        retry?: boolean;
-        /**
-         * The timezone
-         */
-        timezone?: string;
-        /**
-         * Attachments
-         */
-        attachments?: {
-            /**
-             * The file name
-             */
-            file_name: string;
-            /**
-             * The file's mime type
-             */
-            file_type: string;
-            /**
-             * The file size in bytes
-             */
-            file_size: number;
-            /**
-             * The contents of the file that were extracted
-             */
-            extracted_content: string;
-            /**
-             * The total pages of the document
-             */
-            totalPages?: number;
-        }[];
-        /**
-         * Callback when done receiving the message response
-         */
-        done?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-        /**
-         * Callback on message response progress
-         */
-        progress?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-    }): Promise<{
+    retry(params?: SendMessageParams): Promise<{
         /**
          * The markdown text completion for this response
          */
@@ -725,99 +406,7 @@ export class Conversation {
      * @param {SendMessageParams} params The parameters to send along with the message
      * @returns {Promise<MessageStreamChunk>}
      */
-    sendMessage(message: string, { retry, timezone, attachments, model, done, progress, rawResponse }?: {
-        /**
-         * Whether to retry the most recent message in the conversation instead of sending a new one
-         */
-        retry?: boolean;
-        /**
-         * The timezone
-         */
-        timezone?: string;
-        /**
-         * Attachments
-         */
-        attachments?: {
-            /**
-             * The file name
-             */
-            file_name: string;
-            /**
-             * The file's mime type
-             */
-            file_type: string;
-            /**
-             * The file size in bytes
-             */
-            file_size: number;
-            /**
-             * The contents of the file that were extracted
-             */
-            extracted_content: string;
-            /**
-             * The total pages of the document
-             */
-            totalPages?: number;
-        }[];
-        /**
-         * Callback when done receiving the message response
-         */
-        done?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-        /**
-         * Callback on message response progress
-         */
-        progress?: (a: {
-            /**
-             * The markdown text completion for this response
-             */
-            completion: string;
-            /**
-             * The reason for the response stop (if any)
-             */
-            stop_reason: string;
-            /**
-             * The model used
-             */
-            model: string;
-            /**
-             * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-             */
-            stop: string;
-            /**
-             * A logging ID
-             */
-            log_id: string;
-            /**
-             * If you're within the message limit
-             */
-            messageLimit: any;
-        }) => any;
-    }): Promise<{
+    sendMessage(message: string, { retry, timezone, attachments, model, done, progress, rawResponse }?: SendMessageParams): Promise<{
         /**
          * The markdown text completion for this response
          */
@@ -962,9 +551,25 @@ export class Conversation {
     #private;
 }
 /**
+ * @typedef JSONResponse
+ * @property {'human' | 'assistant'} sender The sender
+ * @property {string} text The text
+ * @property {UUID} uuid msg uuid
+ * @property {string} created_at The message created at
+ * @property {string} updated_at The message updated at
+ * @property {string} edited_at When the message was last edited (no editing support via api/web client)
+ * @property {Attachment[]} attachments The attachments
+ * @property {string} chat_feedback Feedback
+ */
+/**
  * Message class
  * @class
  * @classdesc A class representing a message in a Conversation
+ * @property {Function} request The request function  (inherited from claude instance)
+ * @property {JSONResponse} json The JSON representation
+ * @property {Claude} claude The claude instance
+ * @property {Conversation} conversation The conversation this message belongs to
+ * @property {UUID} uuid The message uuid
  */
 export class Message {
     /**
@@ -975,28 +580,7 @@ export class Message {
      * @param {Message} message - Message data
      */
     constructor({ conversation, claude }: {
-        conversation: {
-            /**
-             * The conversation ID
-             */
-            conversationId: string;
-            /**
-             * The conversation name
-             */
-            name: string;
-            /**
-             * The conversation summary (usually empty)
-             */
-            summary: string;
-            /**
-             * The conversation created at
-             */
-            created_at: string;
-            /**
-             * The conversation updated at
-             */
-            updated_at: string;
-        };
+        conversation: Conversation;
         claude: Claude;
     }, { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments }: {
         /**
@@ -1198,3 +782,155 @@ export class Message {
     }>;
 }
 export default Claude;
+export type SendMessageParams = {
+    /**
+     * Whether to retry the most recent message in the conversation instead of sending a new one
+     */
+    retry?: boolean;
+    /**
+     * The timezone
+     */
+    timezone?: string;
+    /**
+     * Attachments
+     */
+    attachments?: {
+        /**
+         * The file name
+         */
+        file_name: string;
+        /**
+         * The file's mime type
+         */
+        file_type: string;
+        /**
+         * The file size in bytes
+         */
+        file_size: number;
+        /**
+         * The contents of the file that were extracted
+         */
+        extracted_content: string;
+        /**
+         * The total pages of the document
+         */
+        totalPages?: number;
+    }[];
+    /**
+     * Callback when done receiving the message response
+     */
+    done?: (a: {
+        /**
+         * The markdown text completion for this response
+         */
+        completion: string;
+        /**
+         * The reason for the response stop (if any)
+         */
+        stop_reason: string;
+        /**
+         * The model used
+         */
+        model: string;
+        /**
+         * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
+         */
+        stop: string;
+        /**
+         * A logging ID
+         */
+        log_id: string;
+        /**
+         * If you're within the message limit
+         */
+        messageLimit: any;
+    }) => any;
+    /**
+     * Callback on message response progress
+     */
+    progress?: (a: {
+        /**
+         * The markdown text completion for this response
+         */
+        completion: string;
+        /**
+         * The reason for the response stop (if any)
+         */
+        stop_reason: string;
+        /**
+         * The model used
+         */
+        model: string;
+        /**
+         * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
+         */
+        stop: string;
+        /**
+         * A logging ID
+         */
+        log_id: string;
+        /**
+         * If you're within the message limit
+         */
+        messageLimit: any;
+    }) => any;
+    /**
+     * The model to use
+     */
+    model?: string;
+};
+export type JSONResponse = {
+    /**
+     * The sender
+     */
+    sender: 'human' | 'assistant';
+    /**
+     * The text
+     */
+    text: string;
+    /**
+     * msg uuid
+     */
+    uuid: any;
+    /**
+     * The message created at
+     */
+    created_at: string;
+    /**
+     * The message updated at
+     */
+    updated_at: string;
+    /**
+     * When the message was last edited (no editing support via api/web client)
+     */
+    edited_at: string;
+    /**
+     * The attachments
+     */
+    attachments: {
+        /**
+         * The file name
+         */
+        file_name: string;
+        /**
+         * The file's mime type
+         */
+        file_type: string;
+        /**
+         * The file size in bytes
+         */
+        file_size: number;
+        /**
+         * The contents of the file that were extracted
+         */
+        extracted_content: string;
+        /**
+         * The total pages of the document
+         */
+        totalPages?: number;
+    }[];
+    /**
+     * Feedback
+     */
+    chat_feedback: string;
+};

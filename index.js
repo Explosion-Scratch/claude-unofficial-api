@@ -1,9 +1,30 @@
 /**
  * The main Claude API client class.
+ * @typedef Claude
  * @class
  * @classdesc Creates an instance of the Claude API client.
  */
 export class Claude {
+    /**
+     * If the Claude client has initialized yet (call `init()` if you haven't and this is false)
+     * @property {boolean}
+     */
+    ready;
+    /**
+     * A proxy function/string to connect via
+     * @property {({endpoint: string, options: Object}) => {endpoint: string, options: Object} | string}
+     */
+    proxy;
+    /**
+     * A fetch function, defaults to globalThis.fetch
+     * @property {Function}
+     */
+    fetch;
+    /**
+     * The session key string (from the cookie)
+     * @property {string}
+     */
+    sessionKey;
     /**
      * A UUID string
      * @typedef UUID
@@ -111,7 +132,7 @@ export class Claude {
             if (temporary) { await convo.delete(); }
             return out;
         } else {
-            return await this.getConversation(conversation).sendMessage(message, {
+            return (await this.getConversation(conversation)).sendMessage(message, {
                 ...params,
             })
         }
@@ -202,14 +223,6 @@ export class Claude {
     /**
      * @callback progressCallback
      * @param {MessageStreamChunk} a The response in progress
-     */
-    /**
-     * @typedef SendMessageParams
-     * @property {Boolean} [retry=false] Whether to retry the most recent message in the conversation instead of sending a new one
-     * @property {String} [timezone="America/New_York"] The timezone
-     * @property {Attachment[]} [attachments=[]] Attachments
-     * @property {doneCallback} [done] Callback when done receiving the message response
-     * @property {progressCallback} [progress] Callback on message response progress
      */
     /**
      * Start a new conversation
@@ -348,19 +361,86 @@ export class Claude {
 }
 
 /**
+ * @typedef SendMessageParams
+ * @property {Boolean} [retry=false] Whether to retry the most recent message in the conversation instead of sending a new one
+ * @property {String} [timezone="America/New_York"] The timezone
+ * @property {Attachment[]} [attachments=[]] Attachments
+ * @property {doneCallback} [done] Callback when done receiving the message response
+ * @property {progressCallback} [progress] Callback on message response progress
+ * @property {string} [model=claude.defaultModel()] The model to use
+ */
+/**
  * A Claude conversation instance.
  * @class 
+ * @typedef Conversation
  * @classdesc Represents an active Claude conversation.
  */
 export class Conversation {
     /**
-     * @typedef Conversation
-     * @property {String} conversationId The conversation ID
-     * @property {String} name The conversation name
-     * @property {String} summary The conversation summary (usually empty)
-     * @property {String} created_at The conversation created at
-     * @property {String} updated_at The conversation updated at
+     * The conversation ID
+     * @property {string} 
      */
+    conversationId;
+
+    /**
+     * The conversation name
+     * @property {string}
+     */
+    name;
+
+    /**
+     * The conversation summary (usually empty)
+     * @property {string}
+     */
+    summary;
+
+    /**
+     * The conversation created at
+     * @property {string}
+     */
+    created_at;
+
+    /**
+     * The conversation updated at
+     * @property {string}
+     */
+    updated_at;
+
+    /**
+     * The Claude client
+     * @property {Claude}
+     */
+    claude;
+
+    /**
+     * The request function (from parent claude instance)
+     * @property {(url: string, options: object) => Response}
+     */
+    request;
+
+    /**
+     * The current model
+     * @property {string}
+     */
+    model;
+
+    /**
+     * If the Claude client has initialized yet (call `init()` if you haven't and this is false)
+     * @property {boolean}
+     */
+    ready;
+
+    /**
+     * A proxy function/string to connect via
+     * @property {({endpoint: string, options: Object}) => {endpoint: string, options: Object} | string}
+     */
+    proxy;
+
+    /**
+     * A fetch function, defaults to globalThis.fetch
+     * @property {Function}
+     */
+    fetch;
     /**
      * Create a Conversation instance.
      * @param {Claude} claude - Claude client instance 
@@ -372,7 +452,7 @@ export class Conversation {
      * @param {String} [options.updated_at] - Conversation updated at
      * @param {String} [options.model] - Claude model
      */
-    constructor(claude, { model, conversationId, name = "", summary = "", created_at, updated_at }) {
+    constructor(claude, { model = "default", conversationId, name = "", summary = "", created_at, updated_at }) {
         this.claude = claude;
         this.conversationId = conversationId;
         this.request = claude.request;
@@ -384,6 +464,9 @@ export class Conversation {
         }
         if (!this.conversationId) {
             throw new Error('Conversation ID required, are you calling `await claude.init()`?');
+        }
+        if (model === 'default') {
+            model = this.claude.defaultModel();
         }
         this.model = model || this.claude.defaultModel();
         Object.assign(this, { name, summary, created_at: created_at || new Date().toISOString(), updated_at: updated_at || new Date().toISOString() })
@@ -418,7 +501,10 @@ export class Conversation {
      * @param {SendMessageParams} params The parameters to send along with the message
      * @returns {Promise<MessageStreamChunk>}
      */
-    async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model, done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
+    async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model = 'default', done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
+        if (model === 'default') {
+            model = this.claude.defaultModel();
+        }
         const body = {
             organization_uuid: this.claude.organizationId,
             conversation_uuid: this.conversationId,
@@ -427,7 +513,7 @@ export class Conversation {
             completion: {
                 prompt: message,
                 timezone,
-                model: model || this.model,
+                model: model || this.model || this.claude.defaultModel(),
             }
         };
         const response = await this.request(`/api/${retry ? "retry_message" : "append_message"}`, {
@@ -656,9 +742,25 @@ function uuid() {
 }
 
 /**
+ * @typedef JSONResponse
+ * @property {'human' | 'assistant'} sender The sender
+ * @property {string} text The text
+ * @property {UUID} uuid msg uuid
+ * @property {string} created_at The message created at
+ * @property {string} updated_at The message updated at
+ * @property {string} edited_at When the message was last edited (no editing support via api/web client)
+ * @property {Attachment[]} attachments The attachments
+ * @property {string} chat_feedback Feedback
+ */
+/**
  * Message class
  * @class
  * @classdesc A class representing a message in a Conversation
+ * @property {Function} request The request function  (inherited from claude instance)
+ * @property {JSONResponse} json The JSON representation
+ * @property {Claude} claude The claude instance
+ * @property {Conversation} conversation The conversation this message belongs to
+ * @property {UUID} uuid The message uuid
  */
 export class Message {
     /**
