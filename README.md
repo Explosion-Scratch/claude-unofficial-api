@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> Claude seems to have blocked all non-browser traffic to their internal API – Effectively rendering this project useless. **If you have a fix/method to get around this please PR**. Sorry – [@Explosion-Scratch](https://github.com/Explosion-Scratch)
+
+
+
 <h1><div align=center><a href="https://github.com/explosion-scratch/claude-unofficial-api">claude-unofficial-api</a></div></h1>
 
 https://github.com/Explosion-Scratch/claude-unofficial-api/assets/61319150/6c3f706d-bddf-42e6-9745-aa1f7561ca40

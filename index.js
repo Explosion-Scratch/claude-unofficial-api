@@ -548,7 +548,7 @@ export class Conversation {
                 }).map(i => i.completion).join(''), delta: parsed.completion
             };
             progress(PROGRESS_OBJECT);
-            if (parsed.stop_reason === 'stop_sequence' || parsed.stop_reason === null) {
+            if (PROGRESS_OBJECT.stop_reason === 'stop_sequence') {
                 done(PROGRESS_OBJECT);
                 resolve(PROGRESS_OBJECT);
             }
