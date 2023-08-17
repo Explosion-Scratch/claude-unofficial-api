@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> Claude seems to have blocked all non-browser traffic to their API – Effectively rendering this project useless. **If you have a fix/method to get around this please PR**. Sorry – [@Explosion-Scratch](https://github.com/Explosion-Scratch)
+> Claude seems to have blocked all non-browser traffic to their internal API – Effectively rendering this project useless. **If you have a fix/method to get around this please PR**. Sorry – [@Explosion-Scratch](https://github.com/Explosion-Scratch)
 
 
 
