@@ -2,6 +2,7 @@
 
 import { Claude } from '../index.js';
 import inquirer from 'inquirer';
+import readline from 'readline'
 import chalk from 'chalk';
 import ora from 'ora';
 import * as marked from 'marked';
@@ -16,6 +17,7 @@ import "isomorphic-fetch";
 import { File } from "@web-std/file";
 import { exec } from 'child_process';
 import open from 'open';
+import fetch from './tls.js';
 
 marked.setOptions({ headerIds: false, mangle: false })
 marked.setOptions({
@@ -116,7 +118,7 @@ const WELCOME_MESSAGE = chalk.bold.green('Welcome to the Claude CLI!');
 let MODEL = 'claude-2'
 const claude = new Claude({
     sessionKey: getKey(),
-    fetch: globalThis.fetch
+    fetch: fetch,
 });
 
 async function main() {
@@ -782,7 +784,6 @@ async function getPrompt(template, variables = {}) {
             } catch (e) {
                 return { value: '', body: '' };
             }
-            console.log("GOT SHELL RESULT", { result });
             if (['shd', 'shelld', 'shelldisplay'].includes(command)) {
                 return {
                     value: result,
@@ -795,12 +796,28 @@ async function getPrompt(template, variables = {}) {
             }
         }
         if (command === 'js' || ['jsdisplay', 'jsd'].includes(command)) {
+            if (SPINNER) { SPINNER.stop() }
             let pr;
             const BLACKLIST = ['void', 'var', 'let', 'const', 'private', 'public', 'window', 'body', 'document', 'globalThis', 'globals', 'import', 'class', 'async', 'function', 'this', 'return', 'yield', 'throw', 'catch', 'break', 'case', 'continue', 'default', 'do', 'else', 'finally', 'if', 'in', 'return', 'switch', 'throw', 'try', 'while', 'with', 'yield'];
             let p = new Promise(resolve => (pr = resolve));
-            const EVAL_STR = (`((async ({${Object.keys(variables).filter(i => !BLACKLIST.includes(i)).join(', ')}}) => {
-            ${arg.split('\n').length === 1 ? `return ${arg}` : arg}
-        })(${JSON.stringify(variables)})).then(result => {
+            const ask = (q) => {
+                return new Promise(resolve => {
+                    const rl = readline.createInterface({
+                        input: process.stdin,
+                        output: process.stdout,
+                    })
+                    rl.question(q, (a) => {
+                        resolve(a);
+                    })
+                })
+            }
+            const EVAL_STR = (`
+            const tempFunc = async ({${Object.keys(variables).filter(i => !BLACKLIST.includes(i)).join(', ')}}) => {
+                ${arg.split('\n').length === 1 ? `return ${arg}` : arg}
+            }
+            debugger;
+            tempFunc(${JSON.stringify({ variables })}).then(result => {
+            debugger;
             pr(result);
         })`);
             eval(EVAL_STR);

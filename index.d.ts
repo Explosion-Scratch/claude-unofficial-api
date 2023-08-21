@@ -78,14 +78,22 @@ export class Claude {
      * @param {String} messageLimit.type The type of message limit ("within_limit")
      */
     /**
+     * @typdef {Object} SendMessageParamsStart
+     * @extends SendMessageParams
+     * @property {Conversation} [conversation] An optional conversation to continue/send the message to.
+     * If omitted, then a new conversation will be started
+     * @property {Boolean} [temporary=true] If the conversation is temporary or not.
+     * If temporary, then the convo in question will be deleted after response is gained
+     */
+    /**
      * Send a message to a new or existing conversation.
      * @param {string} message - Initial message
-     * @param {SendMessageParams} [params] - Additional parameters
+     * @param {SendMessageParamsStart} [params] - Additional parameters
      * @param {string} [params.conversation] - Existing conversation ID
      * @param {boolean} [params.temporary=true] - Delete after getting response
      * @returns {Promise<MessageStreamChunk>} Result message
      */
-    sendMessage(message: string, { conversation, temporary, ...params }?: SendMessageParams): Promise<{
+    sendMessage(message: string, { conversation, temporary, ...params }?: SendMessageParamsStart): Promise<{
         /**
          * The markdown text completion for this response
          */
@@ -193,11 +201,11 @@ export class Claude {
      */
     clearConversations(): Promise<Response[]>;
     /**
-     * @callback doneCallback
+     * @callback {Function} doneCallback
      * @param {MessageStreamChunk} a The completed response
      */
     /**
-     * @callback progressCallback
+     * @callback {Function} progressCallback
      * @param {MessageStreamChunk} a The response in progress
      */
     /**
@@ -300,7 +308,7 @@ export class Conversation {
      * @param {String} [options.updated_at] - Conversation updated at
      * @param {String} [options.model] - Claude model
      */
-    constructor(claude: Claude, { model, conversationId, name, summary, created_at, updated_at }: {
+    constructor(claude: Claude, { model, conversationId, name, summary, created_at, updated_at }?: {
         conversationId: string;
         name?: string;
         summary?: string;
@@ -452,7 +460,7 @@ export class Conversation {
      * @property {String} created_at The message created at
      * @property {String} updated_at The message updated at
      * @property {String | null} edited_at When the message was last edited (no editing support via api/web client)
-     * @property {Any | null} chat_feedback Feedback
+     * @property {string | null} chat_feedback Feedback
      * @property {Attachment[]} attachments The attachments
      */
     /**
@@ -521,7 +529,7 @@ export class Conversation {
         /**
          * Feedback
          */
-        chat_feedback: Any | null;
+        chat_feedback: string | null;
         /**
          * The attachments
          */
@@ -606,7 +614,7 @@ export class Message {
         /**
          * Feedback
          */
-        chat_feedback: any;
+        chat_feedback: string;
         /**
          * The attachments
          */
@@ -641,7 +649,7 @@ export class Message {
         index: any;
         updated_at: string;
         edited_at: string;
-        chat_feedback: any;
+        chat_feedback: string;
         attachments: {
             /**
              * The file name
@@ -694,7 +702,7 @@ export class Message {
         /**
          * Feedback
          */
-        chat_feedback: any;
+        chat_feedback: string;
         /**
          * The attachments
          */
@@ -819,61 +827,11 @@ export type SendMessageParams = {
     /**
      * Callback when done receiving the message response
      */
-    done?: (a: {
-        /**
-         * The markdown text completion for this response
-         */
-        completion: string;
-        /**
-         * The reason for the response stop (if any)
-         */
-        stop_reason: string;
-        /**
-         * The model used
-         */
-        model: string;
-        /**
-         * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-         */
-        stop: string;
-        /**
-         * A logging ID
-         */
-        log_id: string;
-        /**
-         * If you're within the message limit
-         */
-        messageLimit: any;
-    }) => any;
+    done?: doneCallback;
     /**
      * Callback on message response progress
      */
-    progress?: (a: {
-        /**
-         * The markdown text completion for this response
-         */
-        completion: string;
-        /**
-         * The reason for the response stop (if any)
-         */
-        stop_reason: string;
-        /**
-         * The model used
-         */
-        model: string;
-        /**
-         * The string at which Claude stopped responding at, e.g. "\n\nHuman:"
-         */
-        stop: string;
-        /**
-         * A logging ID
-         */
-        log_id: string;
-        /**
-         * If you're within the message limit
-         */
-        messageLimit: any;
-    }) => any;
+    progress?: progressCallback;
     /**
      * The model to use
      */

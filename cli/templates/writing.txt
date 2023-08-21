@@ -1,0 +1,57 @@
+{__silent=true}
+{#jsd}
+function getPrompt(text, purpose) {
+    const sentences = getSentences(text);
+    return `Suggest some improvements for this text in bullet points. Don't give any actual suggestions for rephrasing, etc, instead just use bullet point suggestions. Give specific actionable advice to make the writing stronger, more interesting to read and solid overall. These suggestions can be to remove sections, add sections, rephrase things, or add in ideas/important topics. Focus on the purpose (given below):
+  ${sentences.map((i, idx) => `${i.trim()} [${idx + 1}]`).join('. ')}
+	
+ Your suggestions should be in the following format:
+ - [Priority level (1-3) - 1 is highest][SENTENCE NUMBER] Suggestion in plain text
+
+ Example suggestion:
+ - [2][4] Rephrase to be more clear and remove run-ons.
+
+ Output 10 suggestions. Each suggestion should pertain to only 1 sentence. Be concise.
+
+Purpose: ` + purpose
+}
+
+function getSentences(text) {
+    return text.split(/[\!\.\?]/).filter(i => i.trim().length);
+}
+
+return getPrompt(variables.prompt, "Convey an effective and professional scientific abstract in 250 words.")
+{/jsd}
+{#followup}
+{#js}
+let sentences = getSentences(variables.prompt);
+let list = variables.claude_response.completion.split('\n').map(i => i.trim()).filter(i => i.startsWith('*') || i.startsWith('-')).map(i => {
+    const { groups: { priority, sentence, suggestion } } = i.match(/[\-\*]\s*\[(?<priority>[0-9])\]\s*\[(?<sentence>[0-9])\]\s*(?<suggestion>.+)/);
+
+    return {
+        priority: parseInt(priority),
+        sentenceIndex: parseInt(sentence),
+        sentence: sentences[parseInt(sentence) - 1],
+        suggestion: suggestion,
+    }
+});
+
+list = list.sort((a, b) => a.sentenceIndex - b.sentenceIndex);
+
+console.log(sentences.map((i, idx) => `${chalk.bold.blue('"' + i.trim() + '"')}\n${list.filter(i => i.sentenceIndex === idx).sort((a, b) => a.priority - b.priority).map(i => {
+    i.suggestion = i.suggestion.trim();
+    if (i.priority === 1) {
+        return chalk.bold.red(i.suggestion);
+    } else if (i.priority === 2) {
+        return chalk.bold.yellow(i.suggestion);
+    } else {
+        return chalk.bold.gray(i.suggestion)
+    }
+}).map(i => '\t- ' + i).join('\n')}`).join('\n\n'));
+
+process.exit(0);
+function getSentences(text) {
+    return text.split(/[\!\.\?]/).filter(i => i.trim().length);
+}
+{/js}
+{/followup}

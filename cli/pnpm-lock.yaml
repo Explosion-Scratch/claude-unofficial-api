@@ -14,6 +14,9 @@ dependencies:
   claude-ai:
     specifier: ^1.2.0
     version: 1.2.0
+  cycletls:
+    specifier: ^1.0.21
+    version: 1.0.21
   dotenv:
     specifier: ^16.3.1
     version: 16.3.1
@@ -74,6 +77,10 @@ packages:
 
   /@types/minimist@1.2.2:
     resolution: {integrity: sha512-jhuKLIRrhvCPLqwPcx6INqmKeiA5EWrsCOPhrlFSrbrmU4ZMPjj5Ul/oLCMDO98XRUIwVm78xICz4EPCektzeQ==}
+    dev: false
+
+  /@types/node@17.0.45:
+    resolution: {integrity: sha512-w+tIMs3rq2afQdsPJlODhoUEKzFP1ayaoyl1CcnwtIlsVe7K7bA1NGm4s3PraqTLlXnbIN84zuBlxBWo1u9BLw==}
     dev: false
 
   /@types/normalize-package-data@2.4.1:
@@ -340,6 +347,16 @@ packages:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+    dev: false
+
+  /cycletls@1.0.21:
+    resolution: {integrity: sha512-Ccox1s+3mhoc/SOlzAXH2EqyKPc3PlJ6WVvshgzBn99ihDSmp/GQJqPw7TKBLO5pJMZtrl9B7s8cMdrwOoORbQ==}
+    dependencies:
+      '@types/node': 17.0.45
+      ws: 7.5.9
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
     dev: false
 
   /decamelize-keys@2.0.1:
@@ -1358,6 +1375,19 @@ packages:
       ansi-styles: 4.3.0
       string-width: 4.2.3
       strip-ansi: 6.0.1
+    dev: false
+
+  /ws@7.5.9:
+    resolution: {integrity: sha512-F+P9Jil7UiSKSkppIiD94dN07AwvFixvLIj1Og1Rl9GGMuNipJnV9JzjD6XuqmAeiswGvUmNLjr5cFuXwNS77Q==}
+    engines: {node: '>=8.3.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: ^5.0.2
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
     dev: false
 
   /yallist@4.0.0:

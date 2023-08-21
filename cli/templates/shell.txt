@@ -1,0 +1,31 @@
+Your job is to translate plain english into runnable shell commands. Output a single shell command in a code block.
+
+```
+ENVIRONMENT:
+{#shelldisplay}
+$SHELL --version
+{/shelldisplay}
+
+PATH:
+{#shelldisplay}
+echo $PATH
+{/shelldisplay}
+
+CURRENT DIR:
+{#shelldisplay}
+pwd
+{/shelldisplay}
+
+FILES:
+{#shelldisplay}
+ls -l | head -10
+{/shelldisplay}
+```
+
+Now output a single shell command in a code block based on the following request:
+{prompt}
+{#every}
+    {#jsd}
+        console.log("hello" + await ask('Who are you'))
+    {/jsd}
+{/every}

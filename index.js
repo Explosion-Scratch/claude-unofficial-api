@@ -6,6 +6,14 @@
  */
 export class Claude {
     /**
+     * @typdef SendMessageParamsStart
+     * @extends SendMessageParams
+     * @property {Conversation} [conversation] An optional conversation to continue/send the message to.
+     * If omitted, then a new conversation will be started
+     * @property {Boolean} [temporary=true] If the conversation is temporary or not.
+     * If temporary, then the convo in question will be deleted after response is gained
+     */
+    /**
      * If the Claude client has initialized yet (call `init()` if you haven't and this is false)
      * @property {boolean}
      */
@@ -25,6 +33,7 @@ export class Claude {
      * @property {string}
      */
     sessionKey;
+
     /**
      * A UUID string
      * @typedef UUID
@@ -33,7 +42,7 @@ export class Claude {
     /**
      * Create a new Claude API client instance.
      * @param {Object} options - Options
-     * @param {string} options.sessionKey - Claude session key 
+     * @param {string} options.sessionKey - Claude session key
      * @param {string|function} [options.proxy] - Proxy URL or proxy function
      * @param {function} [options.fetch] - Fetch function
      * @example
@@ -41,15 +50,15 @@ export class Claude {
      *   sessionKey: 'sk-ant-sid01-*****',
      *   fetch: globalThis.fetch
      * })
-     * 
+     *
      * await claude.init();
      * claude.sendMessage('Hello world').then(console.log)
      */
-    constructor({ sessionKey, proxy, fetch }) {
+    constructor({sessionKey, proxy, fetch}) {
         this.ready = false;
         if (typeof proxy === 'string') {
             const HOST = proxy;
-            this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
+            this.proxy = ({endpoint, options}) => ({endpoint: HOST + endpoint, options})
         } else if (typeof proxy === 'function') {
             this.proxy = proxy;
         } else if (proxy) {
@@ -58,7 +67,7 @@ export class Claude {
             throw new Error('Proxy must be a string (host) or a function');
         }
         if (!this.proxy) {
-            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai' + endpoint, options });
+            this.proxy = ({endpoint, options}) => ({endpoint: 'https://claude.ai' + endpoint, options});
         }
         if (!sessionKey) {
             throw new Error('Session key required');
@@ -66,9 +75,12 @@ export class Claude {
         if (!sessionKey.startsWith('sk-ant-sid01')) {
             throw new Error('Session key invalid: Must be in the format sk-ant-sid01-*****');
         }
-        if (fetch) { this.fetch = fetch }
+        if (fetch) {
+            this.fetch = fetch
+        }
         this.sessionKey = sessionKey;
     }
+
     /**
      * Get available Claude models.
      * @returns {string[]} Array of model names
@@ -76,6 +88,7 @@ export class Claude {
     models() {
         return ['claude-2', 'claude-1.3', 'claude-instant', 'claude-instant-100k']
     }
+
     /**
      * Get total token count for a Claude model.
      * @param {string} [model] - Claude model name
@@ -84,13 +97,11 @@ export class Claude {
     totalTokens(model) {
         // TODO: Figure out if this is correct, the blog article said "We’ve expanded Claude’s context window from 9K to 100K tokens"
         const TOKENS = {
-            "claude-2": 100_000,
-            "claude-1.3": 9000,
-            "claude-instant": 9000,
-            "claude-instant-100k": 100_000
+            "claude-2": 100_000, "claude-1.3": 9000, "claude-instant": 9000, "claude-instant-100k": 100_000
         }
         return TOKENS[model || this.defaultModel()];
     }
+
     /**
      * Get the default Claude model.
      * @returns {string} Default model name
@@ -98,6 +109,7 @@ export class Claude {
     defaultModel() {
         return this.models()[0];
     }
+
     /**
      * A partial or total completion for a message.
      * @typedef MessageStreamChunk
@@ -109,27 +121,29 @@ export class Claude {
      * @property {Object} messageLimit If you're within the message limit
      * @param {String} messageLimit.type The type of message limit ("within_limit")
      */
+
     /**
      * Send a message to a new or existing conversation.
      * @param {string} message - Initial message
-     * @param {SendMessageParams} [params] - Additional parameters
+     * @param {SendMessageParamsStart} [params] - Additional parameters
      * @param {string} [params.conversation] - Existing conversation ID
      * @param {boolean} [params.temporary=true] - Delete after getting response
      * @returns {Promise<MessageStreamChunk>} Result message
      */
-    async sendMessage(message, { conversation = null, temporary = true, ...params }) {
+    async sendMessage(message, {conversation = null, temporary = true, ...params} = {}) {
         if (!conversation) {
             let out;
             let convo = await this.startConversation(message, {
-                ...params,
-                done: (a) => {
+                ...params, done: (a) => {
                     if (params.done) {
                         params.done(a);
                     }
                     out = a;
                 }
             })
-            if (temporary) { await convo.delete(); }
+            if (temporary) {
+                await convo.delete();
+            }
             return out;
         } else {
             return (await this.getConversation(conversation)).sendMessage(message, {
@@ -137,6 +151,7 @@ export class Claude {
             })
         }
     }
+
     /**
      * Make an API request.
      * @param {string} endpoint - API endpoint
@@ -151,15 +166,16 @@ export class Claude {
             throw new Error(`No fetch available in your environment. Use node-18 or later, a modern browser, or add the following code to your project:\n\nimport "isomorphic-fetch";\nconst claude = new Claude({fetch: fetch, sessionKey: "sk-ant-sid01-*****"});`);
         }
         if (!this.proxy) {
-            this.proxy = ({ endpoint, options }) => ({ endpoint: 'https://claude.ai' + endpoint, options });
+            this.proxy = ({endpoint, options}) => ({endpoint: 'https://claude.ai' + endpoint, options});
         }
         if (typeof this.proxy === 'string') {
             const HOST = this.proxy;
-            this.proxy = ({ endpoint, options }) => ({ endpoint: HOST + endpoint, options })
+            this.proxy = ({endpoint, options}) => ({endpoint: HOST + endpoint, options})
         }
-        const proxied = this.proxy({ endpoint, options });
+        const proxied = this.proxy({endpoint, options});
         return (this.fetch || globalThis.fetch)(proxied.endpoint, proxied.options);
     }
+
     /**
      * Initialize the client.
      * @async
@@ -174,6 +190,7 @@ export class Claude {
         this.recent_conversations = await this.getConversations();
         this.ready = true;
     }
+
     /**
      * An organization
      * @typedef Organization
@@ -198,12 +215,12 @@ export class Claude {
     async getOrganizations() {
         const response = await this.request("/api/organizations", {
             headers: {
-                "content-type": "application/json",
-                "cookie": `sessionKey=${this.sessionKey}`
+                "content-type": "application/json", "cookie": `sessionKey=${this.sessionKey}`
             }
         });
         return await response.json().catch(errorHandle("getOrganizations"));
     }
+
     /**
      * Delete all conversations
      * @async
@@ -216,12 +233,14 @@ export class Claude {
         const convos = await this.getConversations();
         return Promise.all(convos.map(i => i.delete()))
     }
+
     /**
-     * @callback doneCallback
+     * @callback {Function} doneCallback
      * @param {MessageStreamChunk} a The completed response
      */
+
     /**
-     * @callback progressCallback
+     * @callback {Function} progressCallback
      * @param {MessageStreamChunk} a The response in progress
      */
     /**
@@ -238,34 +257,30 @@ export class Claude {
         if (!this.ready) {
             await this.init();
         }
-        const { uuid: convoID, name, summary, created_at, updated_at } = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
+        const {
+            uuid: convoID, name, summary, created_at, updated_at
+        } = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
-                "content-type": "application/json",
-                "cookie": `sessionKey=${this.sessionKey}`
-            },
-            method: 'POST',
-            body: JSON.stringify({
-                name: '',
-                uuid: uuid(),
+                "content-type": "application/json", "cookie": `sessionKey=${this.sessionKey}`
+            }, method: 'POST', body: JSON.stringify({
+                name: '', uuid: uuid(),
             })
         }).then(r => r.json()).catch(errorHandle("startConversation create"));
-        const convo = new Conversation(this, { conversationId: convoID, name, summary, created_at, updated_at });
+        const convo = new Conversation(this, {conversationId: convoID, name, summary, created_at, updated_at});
         await convo.sendMessage(message, params)
         await this.request(`/api/generate_chat_title`, {
             headers: {
-                "content-type": "application/json",
-                "cookie": `sessionKey=${this.sessionKey}`
-            },
-            body: JSON.stringify({
+                "content-type": "application/json", "cookie": `sessionKey=${this.sessionKey}`
+            }, body: JSON.stringify({
                 organization_uuid: this.organizationId,
                 conversation_uuid: convoID,
                 message_content: message,
                 recent_titles: this.recent_conversations.map(i => i.name),
-            }),
-            method: 'POST'
+            }), method: 'POST'
         }).then(r => r.json()).catch(errorHandle("startConversation generate_chat_title"));
         return convo;
     }
+
     /**
      * Get a conversation by its ID
      * @param {UUID} id The uuid of the conversation (Conversation.uuid or Conversation.conversationId)
@@ -276,27 +291,28 @@ export class Claude {
      */
     async getConversation(id) {
         if (id instanceof Conversation || id.conversationId) {
-            return new Conversation(this, { conversationId: id.conversationId })
+            return new Conversation(this, {conversationId: id.conversationId})
         }
-        return new Conversation(this, { conversationId: id })
+        return new Conversation(this, {conversationId: id})
     }
+
     /**
      * Get all conversations
      * @async
      * @returns {Promise<Conversation[]>} A list of conversations
      * @example
-     * console.log(`You have ${await claude.getConversations().length} conversations:`); 
+     * console.log(`You have ${await claude.getConversations().length} conversations:`);
      */
     async getConversations() {
         const response = await this.request(`/api/organizations/${this.organizationId}/chat_conversations`, {
             headers: {
-                "content-type": "application/json",
-                "cookie": `sessionKey=${this.sessionKey}`
+                "content-type": "application/json", "cookie": `sessionKey=${this.sessionKey}`
             }
         });
         const json = await response.json();
-        return json.map(convo => new Conversation(this, { conversationId: convo.uuid, ...convo }));
+        return json.map(convo => new Conversation(this, {conversationId: convo.uuid, ...convo}));
     }
+
     /**
      * The response from uploading a file (an attachment)
      * @typedef Attachment
@@ -320,14 +336,11 @@ export class Claude {
      * }))
      */
     async uploadFile(file) {
-        const { content, isText } = await readAsText(file);
+        const {content, isText} = await readAsText(file);
         if (isText) {
             console.log(`Extracted ${content.length} characters from ${file.name}`);
             return {
-                "file_name": file.name,
-                "file_type": file.type,
-                "file_size": file.size,
-                "extracted_content": content,
+                "file_name": file.name, "file_type": file.type, "file_size": file.size, "extracted_content": content,
             }
         }
         const fd = new FormData();
@@ -336,9 +349,7 @@ export class Claude {
         const response = await this.request('/api/convert_document', {
             headers: {
                 "cookie": `sessionKey=${this.sessionKey}`,
-            },
-            method: 'POST',
-            body: fd
+            }, method: 'POST', body: fd
         });
         let json;
         try {
@@ -371,14 +382,14 @@ export class Claude {
  */
 /**
  * A Claude conversation instance.
- * @class 
+ * @class
  * @typedef Conversation
  * @classdesc Represents an active Claude conversation.
  */
 export class Conversation {
     /**
      * The conversation ID
-     * @property {string} 
+     * @property {string}
      */
     conversationId;
 
@@ -441,9 +452,10 @@ export class Conversation {
      * @property {Function}
      */
     fetch;
+
     /**
      * Create a Conversation instance.
-     * @param {Claude} claude - Claude client instance 
+     * @param {Claude} claude - Claude client instance
      * @param {Object} options - Options
      * @param {String} options.conversationId - Conversation ID
      * @param {String} [options.name] - Conversation name
@@ -452,7 +464,7 @@ export class Conversation {
      * @param {String} [options.updated_at] - Conversation updated at
      * @param {String} [options.model] - Claude model
      */
-    constructor(claude, { model = "default", conversationId, name = "", summary = "", created_at, updated_at }) {
+    constructor(claude, {model = "default", conversationId, name = "", summary = "", created_at, updated_at} = {}) {
         this.claude = claude;
         this.conversationId = conversationId;
         this.request = claude.request;
@@ -469,8 +481,14 @@ export class Conversation {
             model = this.claude.defaultModel();
         }
         this.model = model || this.claude.defaultModel();
-        Object.assign(this, { name, summary, created_at: created_at || new Date().toISOString(), updated_at: updated_at || new Date().toISOString() })
+        Object.assign(this, {
+            name,
+            summary,
+            created_at: created_at || new Date().toISOString(),
+            updated_at: updated_at || new Date().toISOString()
+        })
     }
+
     /**
      * Convert the conversation to a JSON object
      * @returns {Conversation} The serializable object
@@ -486,22 +504,29 @@ export class Conversation {
             model: this.model,
         }
     }
+
     /**
      * Retry the last message in the conversation
-     * @param {SendMessageParams} [params={}] 
+     * @param {SendMessageParams} [params={}]
      * @returns {Promise<MessageStreamChunk>}
      */
     async retry(params) {
-        return this.sendMessage("", { ...params, retry: true });
+        return this.sendMessage("", {...params, retry: true});
     }
+
     /**
      * Send a message to this conversation
-     * @param {String} message 
+     * @param {String} message
      * @async
      * @param {SendMessageParams} params The parameters to send along with the message
      * @returns {Promise<MessageStreamChunk>}
      */
-    async sendMessage(message, { retry = false, timezone = "America/New_York", attachments = [], model = 'default', done = () => { }, progress = () => { }, rawResponse = () => { } } = {}) {
+    async sendMessage(message, {
+        retry = false, timezone = "America/New_York", attachments = [], model = 'default', done = () => {
+        }, progress = () => {
+        }, rawResponse = () => {
+        }
+    } = {}) {
         if (model === 'default') {
             model = this.claude.defaultModel();
         }
@@ -511,20 +536,19 @@ export class Conversation {
             text: message,
             attachments,
             completion: {
-                prompt: message,
-                timezone,
-                model: model || this.model || this.claude.defaultModel(),
+                prompt: message, timezone, model: model || this.model || this.claude.defaultModel(),
             }
         };
         const response = await this.request(`/api/${retry ? "retry_message" : "append_message"}`, {
-            method: "POST",
-            headers: {
-                "accept": "text/event-stream,text/event-stream",
-                "content-type": "application/json",
-                "cookie": `sessionKey=${this.claude.sessionKey}`
-            },
-            body: JSON.stringify(body)
+            method: "POST", headers: {
+                "accept": "text/event-stream, text/event-stream",
+            }, body: JSON.stringify(body)
         });
+        if (!response.ok) {
+            errorHandle('Response not OK')(response);
+            console.log(await response.text())
+            return;
+        }
         let resolve;
         let returnPromise = new Promise(r => (resolve = r));
         let parsed;
@@ -555,6 +579,7 @@ export class Conversation {
         })
         return returnPromise;
     }
+
     /**
      * Rename the current conversation
      * @async
@@ -566,17 +591,14 @@ export class Conversation {
             throw new Error('Title required');
         }
         return await this.request('/api/rename_chat', {
-            method: 'POST',
-            headers: {
+            method: 'POST', headers: {
                 "cookie": `sessionKey=${this.claude.sessionKey}`
-            },
-            body: JSON.stringify({
-                conversation_uuid: this.conversationId,
-                organization_uuid: this.claude.organizationId,
-                title,
+            }, body: JSON.stringify({
+                conversation_uuid: this.conversationId, organization_uuid: this.claude.organizationId, title,
             })
         }).catch(errorHandle("Rename conversation " + this.conversationId));
     }
+
     /**
      * Delete the conversation
      * @async
@@ -586,10 +608,10 @@ export class Conversation {
         return await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
                 "cookie": `sessionKey=${this.claude.sessionKey}`
-            },
-            method: 'DELETE'
+            }, method: 'DELETE'
         }).catch(errorHandle("Delete conversation " + this.conversationId));
     }
+
     /**
      * @typedef Message
      * @property {UUID} uuid The message UUID
@@ -597,9 +619,10 @@ export class Conversation {
      * @property {String} created_at The message created at
      * @property {String} updated_at The message updated at
      * @property {String | null} edited_at When the message was last edited (no editing support via api/web client)
-     * @property {Any | null} chat_feedback Feedback
+     * @property {string | null} chat_feedback Feedback
      * @property {Attachment[]} attachments The attachments
      */
+
     /**
      * @typedef ConversationInfo
      * @extends Conversation
@@ -612,12 +635,12 @@ export class Conversation {
     async getInfo() {
         const response = await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversationId}`, {
             headers: {
-                "content-type": "application/json",
-                "cookie": `sessionKey=${this.claude.sessionKey}`
+                "content-type": "application/json", "cookie": `sessionKey=${this.claude.sessionKey}`
             }
         });
         return await response.json().then(this.#formatMessages('chat_messages')).catch(errorHandle("getInfo"));
     }
+
     /**
      * Get all the files from this conversation
      * @async
@@ -626,6 +649,7 @@ export class Conversation {
     getFiles() {
         return this.getMessages().then(r => r.map(i => i.attachments)).then(r => r.flat()).catch(errorHandle('getFiles'));
     }
+
     /**
      * Get all messages in the conversation
      * @async
@@ -634,6 +658,7 @@ export class Conversation {
     getMessages() {
         return this.getInfo().then((a) => a.chat_messages).catch(errorHandle("getMessages"));
     }
+
     /**
      * Internal method for converting a JSON response to contain Message objects
      * @param {String} message_key The message key in the object
@@ -645,8 +670,9 @@ export class Conversation {
                 return response;
             }
             return {
-                ...response,
-                [message_key]: response[message_key].map(i => new Message({ claude: this.claude, conversation: this }, { ...i })),
+                ...response, [message_key]: response[message_key].map(i => new Message({
+                    claude: this.claude, conversation: this
+                }, {...i})),
             }
         }
     }
@@ -665,7 +691,7 @@ async function readStream(response, progressCallback) {
     let chunks = [];
     let loading = true;
     while (loading) {
-        const { done, value } = await reader.read();
+        const {done, value} = await reader.read();
         if (done) {
             loading = false;
             break;
@@ -681,7 +707,9 @@ async function readStream(response, progressCallback) {
             position += chunk.length;
         }
 
-        if (value) { progressCallback(new TextDecoder('utf-8').decode(value), new TextDecoder('utf-8').decode(full)); }
+        if (value) {
+            progressCallback(new TextDecoder('utf-8').decode(value), new TextDecoder('utf-8').decode(full));
+        }
     }
 
     let body = new Uint8Array(received);
@@ -706,8 +734,7 @@ async function readAsText(file) {
     // const allow = ['text', 'javascript', 'json', 'html', 'sh', 'xml', 'latex', 'ecmascript']
     const notText = ['doc', 'pdf', 'ppt', 'xls']
     return {
-        content: new TextDecoder('utf-8').decode(buf),
-        isText: !notText.find(i => file.name.includes(i))
+        content: new TextDecoder('utf-8').decode(buf), isText: !notText.find(i => file.name.includes(i))
     }
 }
 
@@ -736,7 +763,8 @@ function uuid() {
     var u = '', i = 0, rb = Math.random() * 0xffffffff | 0;
     while (i++ < 36) {
         var c = k[i - 1], r = rb & 0xf, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        u += (c == '-' || c == '4') ? c : h[v]; rb = i % 8 == 0 ? Math.random() * 0xffffffff | 0 : rb >> 4
+        u += (c == '-' || c == '4') ? c : h[v];
+        rb = i % 8 == 0 ? Math.random() * 0xffffffff | 0 : rb >> 4
     }
     return u
 }
@@ -770,18 +798,21 @@ export class Message {
      * @param {Claude} params.claude - Claude instance
      * @param {Message} message - Message data
      */
-    constructor({ conversation, claude }, { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments }) {
+    constructor({conversation, claude}, {
+        uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments
+    }) {
         if (!claude) {
             throw new Error('Claude not initialized');
         }
         if (!conversation) {
             throw new Error('Conversation not initialized');
         }
-        Object.assign(this, { conversation, claude });
+        Object.assign(this, {conversation, claude});
         this.request = claude.request;
-        this.json = { uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments };
+        this.json = {uuid, text, sender, index, updated_at, edited_at, chat_feedback, attachments};
         Object.assign(this, this.json);
     }
+
     /**
      * Convert this message to a JSON representation
      * Necessary to prevent circular JSON errors
@@ -790,6 +821,7 @@ export class Message {
     toJSON() {
         return this.json;
     }
+
     /**
      * Returns the value of the "created_at" property as a Date object.
      *
@@ -798,6 +830,7 @@ export class Message {
     get createdAt() {
         return new Date(this.json.created_at);
     }
+
     /**
      * Returns the value of the "updated_at" property as a Date object.
      *
@@ -806,6 +839,7 @@ export class Message {
     get updatedAt() {
         return new Date(this.json.updated_at);
     }
+
     /**
      * Returns the value of the "edited_at" property as a Date object.
      *
@@ -814,6 +848,7 @@ export class Message {
     get editedAt() {
         return new Date(this.json.edited_at);
     }
+
     /**
      * Get if message is from the assistant.
      * @type {boolean}
@@ -821,6 +856,7 @@ export class Message {
     get isBot() {
         return this.sender === "assistant";
     }
+
     /**
      * @typedef MessageFeedback
      * @property {UUID} uuid - Message UUID
@@ -833,7 +869,7 @@ export class Message {
      * Send feedback on the message.
      * @param {string} type - Feedback type
      * @param {string} [reason] - Feedback reason
-     * @returns {Promise<MessageFeedback>} Response 
+     * @returns {Promise<MessageFeedback>} Response
      */
     async sendFeedback(type, reason = "") {
         const FEEDBACK_TYPES = ["flag/bug", "flag/harmful", "flag/other"];
@@ -843,12 +879,9 @@ export class Message {
         return await this.request(`/api/organizations/${this.claude.organizationId}/chat_conversations/${this.conversation.conversationId}/chat_messages/${this.uuid}/chat_feedback`, {
             "headers": {
                 "cookie": `sessionKey=${this.claude.sessionKey}`
-            },
-            "body": JSON.stringify({
-                type,
-                reason,
-            }),
-            "method": "POST",
+            }, "body": JSON.stringify({
+                type, reason,
+            }), "method": "POST",
         }).catch(errorHandle("Send feedback"));
     }
 }
