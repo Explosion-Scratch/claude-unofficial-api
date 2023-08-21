@@ -468,6 +468,9 @@ export class Conversation {
         this.claude = claude;
         this.conversationId = conversationId;
         this.request = claude.request;
+        this.proxy = claude.proxy;
+        this.fetch = claude.fetch;
+        this.ready = claude.ready;
         if (!this.claude) {
             throw new Error('Claude not initialized');
         }
